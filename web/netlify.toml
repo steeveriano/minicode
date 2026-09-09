@@ -1,0 +1,29 @@
+# Netlify builds this directory, not the repository root: the Android app lives beside it and has
+# nothing to do with the deploy.
+[build]
+  base = "web"
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+# A single-page app: every path has to reach index.html, or a refresh on a deep link 404s.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    # The page is a private inventory of one person's phone. Keep it out of search engines and out
+    # of referrer headers, and let nothing embed it.
+    X-Robots-Tag = "noindex, nofollow"
+    Referrer-Policy = "no-referrer"
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    # No script, style or connection comes from anywhere but this origin — except the web font.
+    # `connect-src 'none'` is the load-bearing one: it is what proves this page cannot talk to the
+    # phone, whatever ends up in the bundle later.
+    Content-Security-Policy = "default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"

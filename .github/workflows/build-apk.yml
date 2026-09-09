@@ -11,6 +11,11 @@ on:
   workflow_dispatch:
   push:
     branches: [claude/mobile-storage-organizer-app-ehue55]
+    # The web viewer lives in this repository but shares nothing with the Android build. Without
+    # this, editing a stylesheet costs a nine-minute APK build and cancels whatever was running.
+    paths-ignore:
+      - 'web/**'
+      - '**.md'
 
 permissions:
   contents: read

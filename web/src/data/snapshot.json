@@ -1,0 +1,742 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-09-09T10:20:00.000Z",
+  "device": {
+    "availableBytes": 32540254208,
+    "serverVersion": "android-remote-control-mcp 0.0.0-dev"
+  },
+  "locations": [
+    {
+      "id": "builtin:downloads",
+      "name": "Downloads - Only owned files",
+      "path": "/Download",
+      "accessLevel": "owned_only",
+      "root": {
+        "path": "",
+        "totalBytes": 0,
+        "fileCount": 0,
+        "children": []
+      },
+      "partial": true
+    },
+    {
+      "id": "builtin:pictures",
+      "name": "Pictures - All files",
+      "path": "/Pictures",
+      "accessLevel": "full",
+      "root": {
+        "path": "",
+        "totalBytes": 3365226880,
+        "fileCount": 7340,
+        "children": [
+          {
+            "path": "Screenshot",
+            "totalBytes": 2608174908,
+            "fileCount": 5751,
+            "children": []
+          },
+          {
+            "path": "ChatGPT",
+            "totalBytes": 274392872,
+            "fileCount": 60,
+            "children": []
+          },
+          {
+            "path": "WhatsApp",
+            "totalBytes": 84963177,
+            "fileCount": 565,
+            "children": []
+          },
+          {
+            "path": "Whatsapp",
+            "totalBytes": 82636217,
+            "fileCount": 561,
+            "children": []
+          },
+          {
+            "path": "BDSM Selfie",
+            "totalBytes": 80014147,
+            "fileCount": 41,
+            "children": []
+          },
+          {
+            "path": "BDSM Home Works,  Text And Letter",
+            "totalBytes": 51360756,
+            "fileCount": 81,
+            "children": []
+          },
+          {
+            "path": "Admin Memes",
+            "totalBytes": 20995022,
+            "fileCount": 20,
+            "children": []
+          },
+          {
+            "path": "Twitter",
+            "totalBytes": 19349243,
+            "fileCount": 97,
+            "children": []
+          },
+          {
+            "path": "inshot",
+            "totalBytes": 14056204,
+            "fileCount": 1,
+            "children": []
+          },
+          {
+            "path": "pictures",
+            "totalBytes": 7463031,
+            "fileCount": 16,
+            "children": [
+              {
+                "path": "pictures/Screenshot",
+                "totalBytes": 7431305,
+                "fileCount": 15,
+                "children": []
+              },
+              {
+                "path": "pictures/WhatsApp",
+                "totalBytes": 31726,
+                "fileCount": 1,
+                "children": []
+              }
+            ]
+          },
+          {
+            "path": "PhotoRoom",
+            "totalBytes": 5863425,
+            "fileCount": 5,
+            "children": []
+          },
+          {
+            "path": "Instagram",
+            "totalBytes": 5543723,
+            "fileCount": 15,
+            "children": []
+          },
+          {
+            "path": "Webcamoid",
+            "totalBytes": 2473161,
+            "fileCount": 1,
+            "children": []
+          },
+          {
+            "path": "SnapEdit",
+            "totalBytes": 2240311,
+            "fileCount": 7,
+            "children": []
+          },
+          {
+            "path": "Imagine Luzia",
+            "totalBytes": 1918226,
+            "fileCount": 4,
+            "children": []
+          },
+          {
+            "path": "Messenger",
+            "totalBytes": 789979,
+            "fileCount": 9,
+            "children": []
+          },
+          {
+            "path": "Threads",
+            "totalBytes": 677501,
+            "fileCount": 6,
+            "children": []
+          },
+          {
+            "path": "Facebook",
+            "totalBytes": 424766,
+            "fileCount": 7,
+            "children": []
+          },
+          {
+            "path": "Telegram",
+            "totalBytes": 237431,
+            "fileCount": 3,
+            "children": []
+          },
+          {
+            "path": "sticker.ly",
+            "totalBytes": 119529,
+            "fileCount": 1,
+            "children": []
+          },
+          {
+            "path": "Downloader_for_TikTok",
+            "totalBytes": 29911,
+            "fileCount": 1,
+            "children": []
+          },
+          {
+            "path": "WhatAppStickerCreator",
+            "totalBytes": 24300,
+            "fileCount": 1,
+            "children": []
+          }
+        ]
+      },
+      "partial": false
+    },
+    {
+      "id": "builtin:movies",
+      "name": "Movies - All files",
+      "path": "/Movies",
+      "accessLevel": "full",
+      "root": {
+        "path": "",
+        "totalBytes": 5737895737,
+        "fileCount": 387,
+        "children": [
+          {
+            "path": "inshot",
+            "totalBytes": 1815336971,
+            "fileCount": 46,
+            "children": []
+          },
+          {
+            "path": "WhatsApp",
+            "totalBytes": 1302639870,
+            "fileCount": 104,
+            "children": []
+          },
+          {
+            "path": "Downloader_For_Facebook",
+            "totalBytes": 883276778,
+            "fileCount": 58,
+            "children": []
+          },
+          {
+            "path": "Whatsapp",
+            "totalBytes": 547680952,
+            "fileCount": 55,
+            "children": []
+          },
+          {
+            "path": "ScreenRecord",
+            "totalBytes": 469492193,
+            "fileCount": 49,
+            "children": []
+          },
+          {
+            "path": "Downloader_for_TikTok",
+            "totalBytes": 300269365,
+            "fileCount": 58,
+            "children": []
+          },
+          {
+            "path": "IdeaVideoCompressor",
+            "totalBytes": 225483358,
+            "fileCount": 3,
+            "children": []
+          },
+          {
+            "path": "Instagram",
+            "totalBytes": 118631543,
+            "fileCount": 2,
+            "children": []
+          },
+          {
+            "path": "Tiktok Downloader",
+            "totalBytes": 25551298,
+            "fileCount": 5,
+            "children": []
+          },
+          {
+            "path": "snowwhiteapps",
+            "totalBytes": 16423617,
+            "fileCount": 1,
+            "children": []
+          },
+          {
+            "path": "Messenger",
+            "totalBytes": 16309444,
+            "fileCount": 2,
+            "children": []
+          },
+          {
+            "path": "Audio Status Maker",
+            "totalBytes": 8029867,
+            "fileCount": 2,
+            "children": []
+          },
+          {
+            "path": "Downloader_for_Instagram",
+            "totalBytes": 2770725,
+            "fileCount": 1,
+            "children": []
+          }
+        ]
+      },
+      "partial": false
+    },
+    {
+      "id": "builtin:music",
+      "name": "Music - All files",
+      "path": "/Music",
+      "accessLevel": "full",
+      "root": {
+        "path": "",
+        "totalBytes": 61069683,
+        "fileCount": 16,
+        "children": [
+          {
+            "path": "SoundRecorder",
+            "totalBytes": 56506205,
+            "fileCount": 8,
+            "children": []
+          },
+          {
+            "path": "PhoneRecord",
+            "totalBytes": 1888440,
+            "fileCount": 3,
+            "children": [
+              {
+                "path": "PhoneRecord/3217815883",
+                "totalBytes": 1786620,
+                "fileCount": 2,
+                "children": []
+              },
+              {
+                "path": "PhoneRecord/573188332460",
+                "totalBytes": 101820,
+                "fileCount": 1,
+                "children": []
+              }
+            ]
+          },
+          {
+            "path": "Downloader_For_Facebook",
+            "totalBytes": 1566777,
+            "fileCount": 2,
+            "children": []
+          },
+          {
+            "path": "Downloader_for_TikTok",
+            "totalBytes": 679646,
+            "fileCount": 1,
+            "children": []
+          },
+          {
+            "path": "Downloader_for_Instagram",
+            "totalBytes": 427477,
+            "fileCount": 1,
+            "children": []
+          }
+        ]
+      },
+      "partial": false
+    },
+    {
+      "id": "builtin:dcim",
+      "name": "Camera (DCIM) - All files",
+      "path": "/DCIM",
+      "accessLevel": "full",
+      "root": {
+        "path": "",
+        "totalBytes": 26324244414,
+        "fileCount": 17405,
+        "children": [
+          {
+            "path": "Camera",
+            "totalBytes": 25139050075,
+            "fileCount": 4897,
+            "children": []
+          },
+          {
+            "path": "Ordenar 1",
+            "totalBytes": 855202838,
+            "fileCount": 10992,
+            "children": []
+          },
+          {
+            "path": "Oseznos & Familia",
+            "totalBytes": 130287831,
+            "fileCount": 269,
+            "children": []
+          },
+          {
+            "path": "Contenido",
+            "totalBytes": 60600934,
+            "fileCount": 27,
+            "children": []
+          },
+          {
+            "path": "Facebook",
+            "totalBytes": 50494312,
+            "fileCount": 972,
+            "children": []
+          },
+          {
+            "path": "PhotosEditor",
+            "totalBytes": 24111214,
+            "fileCount": 5,
+            "children": []
+          },
+          {
+            "path": "BDSM GIFS",
+            "totalBytes": 17013944,
+            "fileCount": 169,
+            "children": []
+          },
+          {
+            "path": "Otros varios ",
+            "totalBytes": 11345902,
+            "fileCount": 10,
+            "children": []
+          },
+          {
+            "path": "BDSM SW",
+            "totalBytes": 11006428,
+            "fileCount": 29,
+            "children": []
+          },
+          {
+            "path": "Snapseed",
+            "totalBytes": 10200207,
+            "fileCount": 7,
+            "children": []
+          },
+          {
+            "path": "Parapente",
+            "totalBytes": 9403246,
+            "fileCount": 4,
+            "children": []
+          },
+          {
+            "path": "selfie drive",
+            "totalBytes": 2644129,
+            "fileCount": 14,
+            "children": []
+          },
+          {
+            "path": "WhatsApp",
+            "totalBytes": 1446081,
+            "fileCount": 1,
+            "children": []
+          },
+          {
+            "path": "Kik",
+            "totalBytes": 116587,
+            "fileCount": 1,
+            "children": []
+          }
+        ]
+      },
+      "partial": false
+    },
+    {
+      "id": "builtin:recordings",
+      "name": "Recordings - All files",
+      "path": "/Recordings",
+      "accessLevel": "full",
+      "root": {
+        "path": "",
+        "totalBytes": 0,
+        "fileCount": 0,
+        "children": []
+      },
+      "partial": false
+    },
+    {
+      "id": "com.android.externalstorage.documents/primary:Android/media",
+      "name": "media",
+      "path": "/Android/media",
+      "accessLevel": "saf",
+      "root": {
+        "path": "",
+        "totalBytes": 12459636930,
+        "fileCount": 42162,
+        "children": [
+          {
+            "path": "com.whatsapp.w4b",
+            "totalBytes": 7688104155,
+            "fileCount": 34352,
+            "children": []
+          },
+          {
+            "path": "com.whatsapp",
+            "totalBytes": 4771532700,
+            "fileCount": 7809,
+            "children": []
+          },
+          {
+            "path": "com.alphainventor.filemanager",
+            "totalBytes": 75,
+            "fileCount": 1,
+            "children": []
+          },
+          {
+            "path": "com.transsion.mol",
+            "totalBytes": 0,
+            "fileCount": 0,
+            "children": []
+          },
+          {
+            "path": "com.transsion.notebook",
+            "totalBytes": 0,
+            "fileCount": 0,
+            "children": []
+          },
+          {
+            "path": "com.transsion.cloudserver",
+            "totalBytes": 0,
+            "fileCount": 0,
+            "children": []
+          },
+          {
+            "path": "org.telegram.messenger",
+            "totalBytes": 0,
+            "fileCount": 0,
+            "children": []
+          },
+          {
+            "path": "com.yahoo.mobile.client.android.mail",
+            "totalBytes": 0,
+            "fileCount": 0,
+            "children": []
+          },
+          {
+            "path": "com.facebook.katana",
+            "totalBytes": 0,
+            "fileCount": 0,
+            "children": []
+          },
+          {
+            "path": "com.facebook.orca",
+            "totalBytes": 0,
+            "fileCount": 0,
+            "children": []
+          },
+          {
+            "path": "com.instagram.android",
+            "totalBytes": 0,
+            "fileCount": 0,
+            "children": []
+          },
+          {
+            "path": "com.didiglobal.passenger",
+            "totalBytes": 0,
+            "fileCount": 0,
+            "children": []
+          },
+          {
+            "path": "com.openai.chatgpt",
+            "totalBytes": 0,
+            "fileCount": 0,
+            "children": []
+          },
+          {
+            "path": "com.superking.parchisi.star",
+            "totalBytes": 0,
+            "fileCount": 0,
+            "children": []
+          },
+          {
+            "path": "de.yalwa.loc",
+            "totalBytes": 0,
+            "fileCount": 0,
+            "children": []
+          },
+          {
+            "path": "com.transsion.filemanagerx",
+            "totalBytes": 0,
+            "fileCount": 0,
+            "children": []
+          }
+        ]
+      },
+      "partial": false
+    },
+    {
+      "id": "com.android.externalstorage.documents/primary:storage-0",
+      "name": "storage-0",
+      "path": "/storage-0",
+      "accessLevel": "saf",
+      "root": {
+        "path": "",
+        "totalBytes": 27826401618,
+        "fileCount": 21152,
+        "children": [
+          {
+            "path": "MyAlbums",
+            "totalBytes": 14102456394,
+            "fileCount": 8966,
+            "children": [
+              {
+                "path": "MyAlbums/BDSM Trainning",
+                "totalBytes": 3934446366,
+                "fileCount": 2439,
+                "children": []
+              },
+              {
+                "path": "MyAlbums/BDSM Media",
+                "totalBytes": 3739449774,
+                "fileCount": 2200,
+                "children": []
+              },
+              {
+                "path": "MyAlbums/Pets, flowers and Nature",
+                "totalBytes": 1946564007,
+                "fileCount": 844,
+                "children": []
+              },
+              {
+                "path": "MyAlbums/Crecimiento, Conciencia & Opening Mind",
+                "totalBytes": 1466940050,
+                "fileCount": 138,
+                "children": []
+              },
+              {
+                "path": "MyAlbums/Home",
+                "totalBytes": 1043496160,
+                "fileCount": 487,
+                "children": []
+              },
+              {
+                "path": "MyAlbums/Taxiclub",
+                "totalBytes": 631685450,
+                "fileCount": 229,
+                "children": []
+              },
+              {
+                "path": "MyAlbums/Videos La Guarida",
+                "totalBytes": 452869728,
+                "fileCount": 25,
+                "children": []
+              },
+              {
+                "path": "MyAlbums/Oso selfie",
+                "totalBytes": 340158529,
+                "fileCount": 225,
+                "children": []
+              },
+              {
+                "path": "MyAlbums/BDSM Memes",
+                "totalBytes": 270216695,
+                "fileCount": 2038,
+                "children": []
+              },
+              {
+                "path": "MyAlbums/Oso Media",
+                "totalBytes": 213379135,
+                "fileCount": 280,
+                "children": []
+              },
+              {
+                "path": "MyAlbums/To send",
+                "totalBytes": 34356304,
+                "fileCount": 4,
+                "children": []
+              },
+              {
+                "path": "MyAlbums/Tierra paraíso RSS",
+                "totalBytes": 28894196,
+                "fileCount": 57,
+                "children": []
+              }
+            ]
+          },
+          {
+            "path": "Android",
+            "totalBytes": 13327269433,
+            "fileCount": 12176,
+            "children": [
+              {
+                "path": "Android/media",
+                "totalBytes": 13327269433,
+                "fileCount": 12176,
+                "children": []
+              }
+            ]
+          },
+          {
+            "path": "YMusic",
+            "totalBytes": 395804998,
+            "fileCount": 3,
+            "children": []
+          },
+          {
+            "path": "pictures",
+            "totalBytes": 633825,
+            "fileCount": 2,
+            "children": [
+              {
+                "path": "pictures/Screenshot",
+                "totalBytes": 633825,
+                "fileCount": 2,
+                "children": []
+              }
+            ]
+          },
+          {
+            "path": "Snapseed",
+            "totalBytes": 220072,
+            "fileCount": 1,
+            "children": []
+          },
+          {
+            "path": "JockeyAlbumArt",
+            "totalBytes": 16896,
+            "fileCount": 4,
+            "children": []
+          }
+        ]
+      },
+      "partial": false
+    },
+    {
+      "id": "com.android.externalstorage.documents/primary:storage-1",
+      "name": "storage-1",
+      "path": "/storage-1",
+      "accessLevel": "saf",
+      "root": {
+        "path": "",
+        "totalBytes": 49276905,
+        "fileCount": 182,
+        "children": [
+          {
+            "path": "Android",
+            "totalBytes": 49276905,
+            "fileCount": 182,
+            "children": [
+              {
+                "path": "Android/media",
+                "totalBytes": 49276905,
+                "fileCount": 182,
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      "partial": false
+    },
+    {
+      "id": "com.android.externalstorage.documents/primary:Documents",
+      "name": "Documents",
+      "path": "/Documents",
+      "accessLevel": "saf",
+      "root": {
+        "path": "",
+        "totalBytes": 1275,
+        "fileCount": 124,
+        "children": [
+          {
+            "path": ".Android_562be4fc474724ef",
+            "totalBytes": 246,
+            "fileCount": 123,
+            "children": []
+          },
+          {
+            "path": "Image to PDF Converter",
+            "totalBytes": 0,
+            "fileCount": 0,
+            "children": []
+          }
+        ]
+      },
+      "partial": false
+    }
+  ]
+}
