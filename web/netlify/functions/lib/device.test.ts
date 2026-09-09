@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { ALLOWED_TOOLS, bearerFrom, deviceFor, rejectionReason } from './device.mts';
+import { ALLOWED_TOOLS, bearerFrom, deviceFor, rejectionReason, toolsFor } from './device.mts';
 
 const ENV_KEYS = ['DEVICE_CELULAR_URL', 'DEVICE_CELULAR_TOKEN', 'DEVICE_MI_PC_URL', 'DEVICE_MI_PC_TOKEN'];
 
@@ -135,5 +135,59 @@ describe('bearerFrom', () => {
     expect(bearerFrom(new Request('https://x/'))).toBeNull();
     expect(bearerFrom(new Request('https://x/', { headers: { authorization: 'Basic abc' } }))).toBeNull();
     expect(bearerFrom(new Request('https://x/', { headers: { authorization: 'Bearer   ' } }))).toBeNull();
+  });
+});
+
+describe('toolsFor', () => {
+  it('read is the browsing set and nothing else', () => {
+    expect(toolsFor('read')).toEqual(ALLOWED_TOOLS);
+  });
+
+  it('write adds reversible changes but never deletion', () => {
+    const tools = toolsFor('write');
+    expect(tools.has('android_move_file')).toBe(true);
+    expect(tools.has('android_quarantine_files')).toBe(true);
+    expect(tools.has('android_restore_quarantine_batch')).toBe(true);
+    expect(tools.has('android_delete_file')).toBe(false);
+    expect(tools.has('android_purge_quarantine_batch')).toBe(false);
+  });
+
+  it('full is the only level that can destroy', () => {
+    const tools = toolsFor('full');
+    expect(tools.has('android_delete_file')).toBe(true);
+    expect(tools.has('android_purge_quarantine_batch')).toBe(true);
+  });
+
+  it('no level admits driving the screen', () => {
+    for (const level of ['read', 'write', 'full'] as const) {
+      for (const name of ['android_tap', 'android_swipe', 'android_open_app', 'android_set_clipboard']) {
+        expect(toolsFor(level).has(name)).toBe(false);
+      }
+    }
+  });
+});
+
+describe('rejectionReason at each level', () => {
+  it('defaults to read when no level is given', () => {
+    expect(rejectionReason(call('android_move_file'))).toContain('android_move_file');
+  });
+
+  it('read refuses a move', () => {
+    expect(rejectionReason(call('android_move_file'), 'read')).not.toBeNull();
+  });
+
+  it('write allows a move and refuses a delete', () => {
+    expect(rejectionReason(call('android_move_file'), 'write')).toBeNull();
+    expect(rejectionReason(call('android_delete_file'), 'write')).not.toBeNull();
+  });
+
+  it('full allows a delete', () => {
+    expect(rejectionReason(call('android_delete_file'), 'full')).toBeNull();
+  });
+
+  it('a batch is judged at the same level as the rest', () => {
+    const batch = [call('android_list_files'), call('android_delete_file')];
+    expect(rejectionReason(batch, 'write')).toContain('android_delete_file');
+    expect(rejectionReason(batch, 'full')).toBeNull();
   });
 });

@@ -1,358 +1,171 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { Auth } from './Auth';
 import { supabase } from './supabase';
-import {
-  formatBytes,
-  formatCount,
-  leafName,
-  locationLabel,
-  sortedChildren,
-  totalBytes,
-  totalFiles,
-  toSnapshot,
-  type LocationSnapshot,
-  type Snapshot,
-  type SnapshotPayload,
-  type UsageNode,
-} from './snapshot';
-
-/** Depth at which the tree stops opening by itself; deeper levels are a deliberate tap. */
-const AUTO_OPEN_DEPTH = 0;
+import { fleetDevices, type FleetDevice } from './api/fleet';
+import { BrowserScreen } from './screens/BrowserScreen';
+import { DevicesScreen } from './screens/DevicesScreen';
+import { SettingsScreen } from './screens/SettingsScreen';
+import { SnapshotScreen } from './screens/SnapshotScreen';
+import { toSnapshot, type Snapshot, type SnapshotPayload } from './snapshot';
 
 type Access = 'loading' | 'anonymous' | 'denied' | 'granted';
+type Tab = 'devices' | 'browser' | 'snapshot' | 'settings';
+
+const TABS: { id: Tab; label: string }[] = [
+  { id: 'devices', label: 'Dispositivos' },
+  { id: 'browser', label: 'Navegador' },
+  { id: 'snapshot', label: 'Censo' },
+  { id: 'settings', label: 'Ajustes' },
+];
 
 export function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [access, setAccess] = useState<Access>('loading');
+  const [devices, setDevices] = useState<FleetDevice[]>([]);
+  const [selected, setSelected] = useState<string | null>(null);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
+  const [tab, setTab] = useState<Tab>('devices');
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    void supabase.auth.getSession().then(({ data }) => setSession(data.session));
     const { data } = supabase.auth.onAuthStateChange((_event, next) => setSession(next));
     return () => data.subscription.unsubscribe();
+  }, []);
+
+  const loadDevices = useCallback(async () => {
+    const found = await fleetDevices();
+    // Null is "you may not see this", not "there is nothing". The two must not be conflated.
+    if (found === null) return null;
+    setDevices(found);
+    setSelected((current) => current ?? found[0]?.slug ?? null);
+    return found;
   }, []);
 
   const load = useCallback(async () => {
     if (!session) {
       setAccess('anonymous');
-      setSnapshot(null);
       return;
     }
     setAccess('loading');
     setFailure(null);
-    const { data, error } = await supabase.rpc('device_storage_latest_snapshot');
-    if (error) {
-      setFailure(error.message);
+    try {
+      const found = await loadDevices();
+      if (found === null) {
+        setAccess('denied');
+        return;
+      }
+      // The stored census is a separate feed and its absence is not a failure: a fleet with no
+      // capture yet is a normal state, and the live browser works without one.
+      const { data } = await supabase.rpc('device_storage_latest_snapshot');
+      setSnapshot(data ? toSnapshot(data as SnapshotPayload) : null);
+      setAccess('granted');
+    } catch (e: unknown) {
+      setFailure(e instanceof Error ? e.message : 'No se pudo cargar.');
       setAccess('denied');
-      return;
     }
-    // The function returns null for a caller who is signed in but not on the allowlist. That is a
-    // different answer from "there is no data", and the page must not conflate them.
-    if (data === null) {
-      setAccess('denied');
-      return;
-    }
-    setSnapshot(toSnapshot(data as SnapshotPayload));
-    setAccess('granted');
-  }, [session]);
+  }, [session, loadDevices]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  if (access === 'loading') {
-    return <p className="empty">Cargando…</p>;
-  }
-  if (access === 'anonymous') {
-    return <Auth />;
-  }
+  if (access === 'loading') return <p className="empty">Cargando…</p>;
+  if (access === 'anonymous') return <Auth />;
+
   if (access === 'denied') {
     return (
       <div className="gate">
         <h1>Sin acceso</h1>
         <p className="muted">
           Iniciaste sesión como <strong>{session?.user.email}</strong>, pero esa dirección no está
-          autorizada a ver este inventario.
+          autorizada a ver este panel.
         </p>
         {failure && <p className="error">{failure}</p>}
-        <button type="button" className="ghost" onClick={() => supabase.auth.signOut()}>
+        <button type="button" className="ghost" onClick={() => void supabase.auth.signOut()}>
           Cerrar sesión
         </button>
       </div>
     );
   }
-  if (!snapshot) {
-    return (
-      <div className="gate">
-        <h1>Todavía no hay mediciones</h1>
-        <p className="muted">Corré la captura contra el teléfono y volvé a entrar.</p>
-        <button type="button" className="ghost" onClick={() => supabase.auth.signOut()}>
-          Cerrar sesión
-        </button>
-      </div>
-    );
-  }
-  return <Viewer snapshot={snapshot} email={session?.user.email ?? ''} />;
-}
 
-function Viewer({ snapshot, email }: { snapshot: Snapshot; email: string }) {
-  const [query, setQuery] = useState('');
-  const [expandAll, setExpandAll] = useState(false);
-
-  const grandTotal = useMemo(() => totalBytes(snapshot), [snapshot]);
-  const files = useMemo(() => totalFiles(snapshot), [snapshot]);
-  const locations = useMemo(
-    () =>
-      [...snapshot.locations].sort((a, b) => (b.root?.totalBytes ?? 0) - (a.root?.totalBytes ?? 0)),
-    [snapshot],
-  );
-
-  const needle = query.trim().toLowerCase();
-  const visible = needle === '' ? locations : locations.filter((l) => locationMatches(l, needle));
+  const device = devices.find((d) => d.slug === selected) ?? null;
 
   return (
     <div className="wrap">
-      <header>
-        <h1>Almacenamiento del dispositivo</h1>
-        <p className="captured">
-          Medido el{' '}
-          {new Date(snapshot.capturedAt).toLocaleString('es', {
-            dateStyle: 'long',
-            timeStyle: 'short',
-          })}
-          {snapshot.device.serverVersion ? ` · ${snapshot.device.serverVersion}` : ''}
-        </p>
-        <p className="captured">
-          {email}{' '}
-          <button type="button" className="linklike" onClick={() => supabase.auth.signOut()}>
-            cerrar sesión
-          </button>
-        </p>
+      <header className="shell-head">
+        <div>
+          <h1>Panel de dispositivos</h1>
+          <p className="captured">
+            {session?.user.email}{' '}
+            <button type="button" className="linklike" onClick={() => void supabase.auth.signOut()}>
+              cerrar sesión
+            </button>
+          </p>
+        </div>
+        {device && (
+          <div className="device-pill">
+            <span className="muted">Navegando</span>
+            <strong>{device.alias}</strong>
+          </div>
+        )}
       </header>
 
-      <section className="tiles" aria-label="Resumen">
-        <Tile label="Ocupado" value={formatBytes(grandTotal)} accent />
-        <Tile label="Archivos" value={formatCount(files)} />
-        <Tile
-          label="Libre"
-          value={
-            snapshot.device.availableBytes === null
-              ? '—'
-              : formatBytes(snapshot.device.availableBytes)
-          }
-        />
-        <Tile label="Ubicaciones" value={formatCount(locations.length)} />
-      </section>
+      <nav className="tabs" aria-label="Secciones">
+        {TABS.map((entry) => (
+          <button
+            key={entry.id}
+            type="button"
+            className={tab === entry.id ? 'tab active' : 'tab'}
+            aria-current={tab === entry.id ? 'page' : undefined}
+            onClick={() => setTab(entry.id)}
+          >
+            {entry.label}
+          </button>
+        ))}
+      </nav>
 
-      <div className="controls">
-        <input
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Buscar una carpeta…"
-          aria-label="Buscar una carpeta"
+      {tab === 'devices' && (
+        <DevicesScreen
+          devices={devices}
+          selected={selected}
+          onSelect={(slug) => {
+            setSelected(slug);
+            setTab('browser');
+          }}
         />
-        <button type="button" onClick={() => setExpandAll((v) => !v)}>
-          {expandAll ? 'Contraer todo' : 'Expandir todo'}
-        </button>
-      </div>
-
-      {visible.length === 0 ? (
-        <p className="empty">Ninguna carpeta coincide con «{query}».</p>
-      ) : (
-        visible.map((location) => (
-          <LocationPanel
-            key={location.id}
-            location={location}
-            grandTotal={grandTotal}
-            filter={needle}
-            expandAll={expandAll}
-          />
-        ))
       )}
+
+      {tab === 'browser' &&
+        (selected ? (
+          <BrowserScreen slug={selected} />
+        ) : (
+          <p className="empty">Elegí un dispositivo en la pestaña Dispositivos.</p>
+        ))}
+
+      {tab === 'snapshot' &&
+        (snapshot ? (
+          <SnapshotScreen snapshot={snapshot} email={session?.user.email ?? ''} />
+        ) : (
+          <div className="gate">
+            <h1>Todavía no hay censo guardado</h1>
+            <p className="muted">
+              El navegador funciona igual: lee del dispositivo en vivo. El censo es la vista
+              histórica, y se genera con <code>npm run capture</code>.
+            </p>
+          </div>
+        ))}
+
+      {tab === 'settings' && <SettingsScreen devices={devices} onChanged={() => void loadDevices()} />}
 
       <footer>
         <p>
-          Instantánea generada con <code>npm run capture</code> contra el servidor MCP del teléfono y
-          guardada en Supabase. Esta página nunca se conecta al dispositivo: sólo consulta la base,
-          así que funciona con el celular apagado. Quién puede leerla lo decide el servidor, no el
-          navegador.
+          El navegador lee del dispositivo en el momento, a través de una función de este mismo
+          sitio que guarda el token y reenvía sólo las herramientas del nivel elegido. El censo
+          consulta Supabase y funciona con el teléfono apagado.
         </p>
       </footer>
     </div>
   );
-}
-
-function Tile({ label, value, accent = false }: { label: string; value: string; accent?: boolean }) {
-  return (
-    <div className="tile">
-      <div className={accent ? 'value accent mono' : 'value mono'}>{value}</div>
-      <div className="label">{label}</div>
-    </div>
-  );
-}
-
-function LocationPanel({
-  location,
-  grandTotal,
-  filter,
-  expandAll,
-}: {
-  location: LocationSnapshot;
-  grandTotal: number;
-  filter: string;
-  expandAll: boolean;
-}) {
-  const label = locationLabel(location);
-  return (
-    <section className="panel" aria-label={label.name}>
-      {location.root === null ? (
-        <>
-          <StaticRow
-            name={label.name}
-            detail={label.path}
-            chip={{ kind: 'critical', text: 'Sin datos' }}
-          />
-          <p className="note">{location.error ?? 'La medición no completó.'}</p>
-        </>
-      ) : (
-        <>
-          <TreeRow
-            node={location.root}
-            displayName={label.name}
-            displayPath={label.path}
-            grandTotal={grandTotal}
-            depth={0}
-            filter={filter}
-            expandAll={expandAll}
-            chip={
-              location.partial ? { kind: 'warning' as const, text: 'Parcial' } : undefined
-            }
-          />
-          {location.partial && (
-            <p className="note">
-              Android sólo deja ver aquí los archivos que esta app creó. El total es un piso, no la
-              cifra real.
-            </p>
-          )}
-        </>
-      )}
-    </section>
-  );
-}
-
-function StaticRow({
-  name,
-  detail,
-  chip,
-}: {
-  name: string;
-  detail: string;
-  chip?: { kind: 'warning' | 'critical'; text: string };
-}) {
-  return (
-    <div className="row leaf">
-      <div className="name">
-        <span className="caret" aria-hidden="true" />
-        <span className="text">{name}</span>
-        {chip && <span className={`chip ${chip.kind}`}>{chip.text}</span>}
-      </div>
-      <div className="figures mono">
-        <span className="files">{detail}</span>
-      </div>
-    </div>
-  );
-}
-
-function TreeRow({
-  node,
-  displayName,
-  displayPath,
-  grandTotal,
-  depth,
-  filter,
-  expandAll,
-  chip,
-}: {
-  node: UsageNode;
-  displayName?: string;
-  displayPath?: string;
-  grandTotal: number;
-  depth: number;
-  filter: string;
-  expandAll: boolean;
-  chip?: { kind: 'warning' | 'critical'; text: string };
-}) {
-  const [openedByUser, setOpenedByUser] = useState<boolean | null>(null);
-  const children = useMemo(() => sortedChildren(node), [node]);
-  const hasChildren = children.length > 0;
-
-  // A search opens whatever it matched; otherwise the user's own choice wins, and failing that the
-  // depth default. Without the search override a match three levels down would stay invisible.
-  const forcedOpen = expandAll || (filter !== '' && subtreeMatches(node, filter));
-  const open = openedByUser ?? (forcedOpen || depth < AUTO_OPEN_DEPTH);
-
-  const share = grandTotal === 0 ? 0 : node.totalBytes / grandTotal;
-  const name = displayName ?? leafName(node.path);
-
-  return (
-    <>
-      <button
-        type="button"
-        className={hasChildren ? 'row' : 'row leaf'}
-        aria-expanded={hasChildren ? open : undefined}
-        onClick={hasChildren ? () => setOpenedByUser(!open) : undefined}
-        style={{ paddingLeft: `${14 + depth * 16}px` }}
-      >
-        <div className="name">
-          <span className={open && hasChildren ? 'caret open' : 'caret'} aria-hidden="true">
-            {hasChildren ? '›' : ''}
-          </span>
-          <span className="text">{name}</span>
-          {displayPath && <span className="path mono">{displayPath}</span>}
-          {chip && <span className={`chip ${chip.kind}`}>{chip.text}</span>}
-        </div>
-        <div className="figures">
-          <span className="mono">{formatBytes(node.totalBytes)}</span>
-          <span className="files mono">{formatCount(node.fileCount)}</span>
-        </div>
-        <div
-          className="bar"
-          role="img"
-          aria-label={`${(share * 100).toFixed(1)} % del total`}
-          title={`${formatBytes(node.totalBytes)} · ${formatCount(node.fileCount)} archivos · ${(
-            share * 100
-          ).toFixed(1)} % del total`}
-        >
-          <i style={{ width: `${Math.max(share * 100, share > 0 ? 0.6 : 0)}%` }} />
-        </div>
-      </button>
-
-      {open &&
-        children.map((child) => (
-          <TreeRow
-            key={child.path}
-            node={child}
-            grandTotal={grandTotal}
-            depth={depth + 1}
-            filter={filter}
-            expandAll={expandAll}
-          />
-        ))}
-    </>
-  );
-}
-
-/** True when this node or anything under it carries the search text. */
-function subtreeMatches(node: UsageNode, needle: string): boolean {
-  if (node.path.toLowerCase().includes(needle)) return true;
-  return node.children.some((child) => subtreeMatches(child, needle));
-}
-
-function locationMatches(location: LocationSnapshot, needle: string): boolean {
-  if (location.name.toLowerCase().includes(needle)) return true;
-  if (location.path.toLowerCase().includes(needle)) return true;
-  return location.root !== null && subtreeMatches(location.root, needle);
 }

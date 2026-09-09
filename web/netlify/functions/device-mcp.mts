@@ -1,5 +1,5 @@
 import type { Config } from '@netlify/functions';
-import { DEVICE_TIMEOUT_MS, bearerFrom, deviceFor, isViewer, json, rejectionReason } from './lib/device.mts';
+import { DEVICE_TIMEOUT_MS, bearerFrom, deviceFor, gateFor, json, rejectionReason } from './lib/device.mts';
 
 /**
  * Authenticated proxy from the panel to one device's MCP server.
@@ -14,19 +14,20 @@ export default async (req: Request): Promise<Response> => {
   const accessToken = bearerFrom(req);
   if (!accessToken) return json(401, { error: 'Falta la sesión.' });
 
-  let viewer: boolean;
+  const slug = new URL(req.url).pathname.split('/').filter(Boolean)[2] ?? '';
+
+  let level: Awaited<ReturnType<typeof gateFor>>;
   try {
-    viewer = await isViewer(accessToken);
+    level = await gateFor(accessToken, slug);
   } catch {
     return json(503, { error: 'No se pudo verificar la sesión.' });
   }
-  // One message for "not signed in" and "signed in but not allowed": the caller learns nothing
-  // about who is on the list.
-  if (!viewer) return json(403, { error: 'Sin acceso.' });
+  // One message for "not signed in", "not on the list" and "no such device": none of the three is
+  // distinguishable from outside.
+  if (!level) return json(403, { error: 'Sin acceso.' });
 
-  const slug = new URL(req.url).pathname.split('/').filter(Boolean)[2] ?? '';
   const device = deviceFor(slug);
-  if (!device) return json(404, { error: 'Dispositivo desconocido.' });
+  if (!device) return json(404, { error: 'Dispositivo sin endpoint configurado.' });
 
   let payload: unknown;
   try {
@@ -35,7 +36,7 @@ export default async (req: Request): Promise<Response> => {
     return json(400, { error: 'Cuerpo JSON inválido.' });
   }
 
-  const rejection = rejectionReason(payload);
+  const rejection = rejectionReason(payload, level);
   if (rejection) return json(403, { error: rejection });
 
   const sessionId = req.headers.get('mcp-session-id');

@@ -1,5 +1,5 @@
 import type { Config } from '@netlify/functions';
-import { bearerFrom, deviceFor, isViewer, json } from './lib/device.mts';
+import { bearerFrom, deviceFor, gateFor, json } from './lib/device.mts';
 
 /** How long to wait on a health probe. Short on purpose: this answers "is it up", not "do work". */
 const HEALTH_TIMEOUT_MS = 8_000;
@@ -16,17 +16,18 @@ export default async (req: Request): Promise<Response> => {
   const accessToken = bearerFrom(req);
   if (!accessToken) return json(401, { error: 'Falta la sesión.' });
 
-  let viewer: boolean;
+  const slug = new URL(req.url).pathname.split('/').filter(Boolean)[2] ?? '';
+
+  let level: Awaited<ReturnType<typeof gateFor>>;
   try {
-    viewer = await isViewer(accessToken);
+    level = await gateFor(accessToken, slug);
   } catch {
     return json(503, { error: 'No se pudo verificar la sesión.' });
   }
-  if (!viewer) return json(403, { error: 'Sin acceso.' });
+  if (!level) return json(403, { error: 'Sin acceso.' });
 
-  const slug = new URL(req.url).pathname.split('/').filter(Boolean)[2] ?? '';
   const device = deviceFor(slug);
-  if (!device) return json(404, { error: 'Dispositivo desconocido.' });
+  if (!device) return json(404, { error: 'Dispositivo sin endpoint configurado.' });
 
   const startedAt = Date.now();
   try {
