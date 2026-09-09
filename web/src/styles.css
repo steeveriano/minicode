@@ -1352,3 +1352,86 @@ button.linklike:hover {
   width: 100%;
   max-width: 220px;
 }
+
+/* ---------------------------------------------------------------- grouping */
+
+.ex-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  flex: none;
+}
+
+.ex-group select {
+  min-height: 34px;
+  background: var(--panel);
+  border: 1px solid var(--outline-hi);
+  border-radius: 4px;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13.5px;
+  text-transform: none;
+  letter-spacing: normal;
+  padding: 6px 10px;
+}
+
+.ex-group-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--panel-2);
+  border: 0;
+  border-top: 1px solid var(--outline);
+  border-bottom: 1px solid var(--outline);
+  color: var(--ink);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  text-align: left;
+  padding: 7px 12px;
+  cursor: pointer;
+  min-height: 32px;
+  position: sticky;
+  top: 34px;
+  z-index: 1;
+}
+
+.ex-group-head:hover {
+  color: var(--accent);
+}
+
+.ex-caret {
+  display: inline-block;
+  color: var(--ink-2);
+  transition: transform 0.12s ease;
+  flex: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ex-caret {
+    transition: none;
+  }
+}
+
+.ex-caret.open {
+  transform: rotate(90deg);
+}
+
+.ex-group-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ex-group-meta {
+  color: var(--ink-2);
+  font-weight: 400;
+  font-size: 12px;
+  white-space: nowrap;
+}

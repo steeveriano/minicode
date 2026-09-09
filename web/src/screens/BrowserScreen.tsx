@@ -11,6 +11,7 @@ import { formatBytes, formatCount } from '../snapshot';
 import { FileIcon, FolderIcon } from '../components/icons';
 import { Preview } from '../components/Preview';
 import { describeType } from '../components/fileType';
+import { GROUP_LABELS, groupBytes, groupEntries, type GroupBy } from '../components/grouping';
 
 /** The device caps a page at 200 entries per folder, so asking for more just gets 200. */
 const PAGE = 200;
@@ -36,6 +37,8 @@ export function BrowserScreen({ slug }: { slug: string }) {
   const [column, setColumn] = useState<Column>('name');
   const [direction, setDirection] = useState<Direction>('asc');
   const [query, setQuery] = useState('');
+  const [groupBy, setGroupBy] = useState<GroupBy>('none');
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const [usage, setUsage] = useState<UsageTreeNode | null>(null);
   const [usageBusy, setUsageBusy] = useState(false);
   const [selected, setSelected] = useState<FileEntry | null>(null);
@@ -233,6 +236,17 @@ export function BrowserScreen({ slug }: { slug: string }) {
     };
   }, [rows, checked]);
 
+  const groups = useMemo(() => groupEntries(rows, groupBy), [rows, groupBy]);
+
+  function toggleGroup(key: string) {
+    setCollapsed((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
   function sortBy(next: Column) {
     if (next === column) setDirection((d) => (d === 'asc' ? 'desc' : 'asc'));
     else {
@@ -313,6 +327,17 @@ export function BrowserScreen({ slug }: { slug: string }) {
           aria-label="Buscar en esta carpeta"
         />
 
+        <label className="ex-group">
+          <span>Agrupar</span>
+          <select value={groupBy} onChange={(e) => setGroupBy(e.target.value as GroupBy)}>
+            {(Object.keys(GROUP_LABELS) as GroupBy[]).map((key) => (
+              <option key={key} value={key}>
+                {GROUP_LABELS[key]}
+              </option>
+            ))}
+          </select>
+        </label>
+
         <button type="button" className="ex-action" onClick={() => void measure()} disabled={usageBusy || !place}>
           {usageBusy ? 'Midiendo…' : 'Calcular tamaño'}
         </button>
@@ -385,7 +410,27 @@ export function BrowserScreen({ slug }: { slug: string }) {
               )}
 
               {!busy &&
-                rows.map((entry) => {
+                groups.map((group) => (
+                  <div key={group.key} className="ex-group-block">
+                    {group.label !== '' && (
+                      <button
+                        type="button"
+                        className="ex-group-head"
+                        aria-expanded={!collapsed.has(group.key)}
+                        onClick={() => toggleGroup(group.key)}
+                      >
+                        <span className={collapsed.has(group.key) ? 'ex-caret' : 'ex-caret open'} aria-hidden="true">
+                          ›
+                        </span>
+                        <span className="ex-group-name">{group.label}</span>
+                        <span className="ex-group-meta mono">
+                          {formatCount(group.entries.length)}
+                          {groupBytes(group) > 0 && ` · ${formatBytes(groupBytes(group))}`}
+                        </span>
+                      </button>
+                    )}
+                    {!collapsed.has(group.key) &&
+                      group.entries.map((entry) => {
                   const measured = entry.is_directory ? usageByName.get(entry.name) : undefined;
                   const isSelected = selected?.name === entry.name && selected.path === entry.path;
                   return (
@@ -443,8 +488,10 @@ export function BrowserScreen({ slug }: { slug: string }) {
                           : formatBytes(entry.size)}
                       </span>
                     </div>
-                  );
-                })}
+                      );
+                    })}
+                  </div>
+                ))}
             </div>
           </div>
         </div>
