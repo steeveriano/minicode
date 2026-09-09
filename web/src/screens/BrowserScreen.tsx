@@ -9,6 +9,7 @@ import {
 } from '../api/device';
 import { formatBytes, formatCount } from '../snapshot';
 import { FileIcon, FolderIcon } from '../components/icons';
+import { Preview } from '../components/Preview';
 import { describeType } from '../components/fileType';
 
 /** The device caps a page at 200 entries per folder, so asking for more just gets 200. */
@@ -368,10 +369,15 @@ export function BrowserScreen({ slug }: { slug: string }) {
         </div>
 
         <aside className="ex-details" aria-label="Detalles">
-          {selected ? (
+          {selected && place ? (
             <>
               <div className="ex-preview">
-                {selected.is_directory ? <FolderIcon size={48} /> : <FileIcon name={selected.name} size={48} />}
+                <Preview
+                  slug={slug}
+                  locationId={place.locationId}
+                  relativePath={join(place.path, selected.name)}
+                  entry={selected}
+                />
               </div>
               <h3 className="ex-details-name">{selected.name}</h3>
               <p className="ex-details-type">{describeType(selected)}</p>

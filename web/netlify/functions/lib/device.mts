@@ -133,6 +133,48 @@ export function deviceFor(slug: string): Device | null {
   return { slug, url: url.replace(/\/+$/, ''), token };
 }
 
+/**
+ * Calls one tool on a device from trusted server code, with a tool name this file chose.
+ *
+ * Deliberately not routed through the allowlist: that gate exists to bound what a *browser* may
+ * ask for, and the names used here are literals in our own functions. `android_share_file_via_web`
+ * in particular stays out of the allowlist on purpose — the browser must not be able to mint
+ * public, unauthenticated URLs for arbitrary device files, so the only path to a file's bytes is
+ * the one that re-serves them from this origin.
+ *
+ * @returns the text of the tool's first content block, banner stripped.
+ */
+export async function callDeviceTool(
+  device: Device,
+  name: string,
+  args: Record<string, unknown>,
+): Promise<string> {
+  const res = await fetch(`${device.url}/mcp`, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${device.token}`,
+      'content-type': 'application/json',
+      accept: 'application/json, text/event-stream',
+    },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'tools/call',
+      params: { name, arguments: args },
+    }),
+    signal: AbortSignal.timeout(DEVICE_TIMEOUT_MS),
+  });
+  if (!res.ok) throw new Error(`device answered ${res.status}`);
+
+  const payload = (await res.json()) as {
+    result?: { content?: { text?: string }[] };
+  };
+  const text = payload.result?.content?.[0]?.text;
+  if (typeof text !== 'string') throw new Error('device returned no text content');
+  const newline = text.startsWith('CAUTION:') ? text.indexOf('\n') : -1;
+  return newline === -1 ? text : text.slice(newline + 1);
+}
+
 /** A single JSON-RPC request, as far as the proxy needs to understand one. */
 type RpcMessage = { method?: unknown; params?: { name?: unknown } };
 

@@ -185,3 +185,40 @@ export async function diskUsage(
   });
   return parseUsage(text);
 }
+
+/**
+ * The bytes of one file, for the preview pane.
+ *
+ * Goes through this origin rather than the device: the page's `img-src` allows only `'self'`,
+ * `data:` and `blob:`, and the function re-serving them keeps the device's temporary public URL out
+ * of the browser entirely.
+ *
+ * @param path relative to the location root — `list_files` reports paths with the location id
+ *   prefixed, and the device's own tools do not accept that form.
+ */
+export async function fetchFileBlob(slug: string, locationId: string, path: string): Promise<Blob> {
+  const query = new URLSearchParams({ location: locationId, path });
+  const res = await fetch(`/api/device/${slug}/file?${query}`, {
+    headers: { authorization: `Bearer ${await accessToken()}` },
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { error?: string } | null;
+    throw new DeviceError(body?.error ?? friendly(res.status, null), res.status);
+  }
+  return res.blob();
+}
+
+/** Head of a text file, through the line-based reader the device provides. */
+export function readTextFile(
+  slug: string,
+  locationId: string,
+  path: string,
+  lines = 80,
+): Promise<string> {
+  return callToolText(slug, 'android_read_file', {
+    location_id: locationId,
+    path,
+    offset: 1,
+    limit: lines,
+  });
+}
