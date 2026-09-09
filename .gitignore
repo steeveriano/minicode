@@ -21,6 +21,11 @@ keystore.properties
 # Keystores (sensitive)
 *.jks
 *.keystore
+# Exception: the shared debug keystore is deliberately committed so every debug
+# build — local or CI — carries the same signature and installs as an upgrade.
+# It signs nothing but debug builds and uses the well-known Android debug
+# credentials, so it is not a secret.
+!debug.keystore
 
 # Local release signing material (keystore, plaintext credentials, certs) — NEVER commit
 .release/

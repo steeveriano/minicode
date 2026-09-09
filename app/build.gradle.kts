@@ -233,6 +233,22 @@ android {
         create("foss") { dimension = "distribution" }
     }
 
+    // Debug signing uses a keystore committed to the repository instead of the per-machine
+    // `~/.android/debug.keystore` that AGP generates on first use. A CI runner starts with an
+    // empty home directory, so that default would produce a different signature on every build
+    // and Android would reject each new debug APK as an upgrade over the previous one, forcing
+    // an uninstall (and losing app data) on every iteration. A fixed keystore keeps the
+    // signature stable across machines and runs; it carries the standard Android debug
+    // credentials and signs no release artifact.
+    signingConfigs {
+        getByName("debug") {
+            storeFile = rootProject.file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     // Release signing configuration (optional, uses keystore.properties if present)
     val keystorePropertiesFile = rootProject.file("keystore.properties")
     if (keystorePropertiesFile.exists()) {
@@ -255,6 +271,7 @@ android {
             // `…mcp.<flavor>.debug`, keeping the release applicationId identical across flavors.
             isDebuggable = true
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("debug")
         }
         release {
             isDebuggable = false
