@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ic_launcher_background">#1B5E20</color>
+    <!-- Deep green ground for the launcher icon. Darker than the app's surface green so the
+         white bars of the foreground hold their contrast at small sizes. -->
+    <color name="ic_launcher_background">#12261A</color>
 </resources>

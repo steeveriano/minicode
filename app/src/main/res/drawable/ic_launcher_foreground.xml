@@ -1,18 +1,17 @@
 <!--
-  Launcher foreground: a card lifting out of a phone.
+  Launcher foreground: three bars, longest first, with the smallest picked out in the accent
+  colour.
 
-  What this build does is move files off a device without destroying them, so the icon shows
-  exactly that — something leaving the phone and held, not thrown away.
+  It reads as what the app is for — seeing what occupies the space, ranked — and the accent bar
+  marks the one singled out for action rather than deleted.
 
-  Drawn as a vector rather than raster art so it stays sharp at every density, and kept inside the
-  adaptive-icon safe zone (roughly a 72dp circle centred in the 108dp viewport) because launchers
-  mask the outer band and anything there can be cropped.
+  Drawn as a vector so it stays sharp at every density, and kept inside the adaptive-icon safe
+  zone (roughly a 72dp circle centred in the 108dp viewport) because launchers mask the outer
+  band and anything there can be cropped.
 
-  Legibility at 48px drove every choice: two solid forms, thick edges, no gradients, no fine
-  detail. The card is separated from the phone by a background-coloured shape drawn behind it,
-  which keeps the two silhouettes distinct at small sizes — without it they merge into one blob.
-  The separation is deliberately thin: a wider one reads as a bite taken out of the phone rather
-  than as one object passing in front of another.
+  Three solid forms with generous corner radii and wide spacing: this survives 48px, which is the
+  size that decides whether an icon works. Nothing is outlined, gradiented, or detailed, because
+  none of that resolves at that size.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
@@ -20,29 +19,18 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Phone body -->
+    <!-- Largest consumer -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M38,44 H56 A5,5 0 0 1 61,49 V79 A5,5 0 0 1 56,84 H38 A5,5 0 0 1 33,79 V49 A5,5 0 0 1 38,44 Z" />
+        android:pathData="M36.5,29.5 H71.5 A6.5,6.5 0 0 1 78,36 V36 A6.5,6.5 0 0 1 71.5,42.5 H36.5 A6.5,6.5 0 0 1 30,36 V36 A6.5,6.5 0 0 1 36.5,29.5 Z" />
 
-    <!-- Screen, cut in the background colour so the body reads as a phone rather than a slab -->
+    <!-- Second -->
     <path
-        android:fillColor="#1B5E20"
-        android:pathData="M41,50 H53 A2,2 0 0 1 55,52 V76 A2,2 0 0 1 53,78 H41 A2,2 0 0 1 39,76 V52 A2,2 0 0 1 41,50 Z" />
+        android:fillColor="#FFFFFF"
+        android:pathData="M36.5,47.5 H57.5 A6.5,6.5 0 0 1 64,54 V54 A6.5,6.5 0 0 1 57.5,60.5 H36.5 A6.5,6.5 0 0 1 30,54 V54 A6.5,6.5 0 0 1 36.5,47.5 Z" />
 
-    <group
-        android:pivotX="63"
-        android:pivotY="34.5"
-        android:rotation="-20">
-
-        <!-- Separation behind the card, in the background colour -->
-        <path
-            android:fillColor="#1B5E20"
-            android:pathData="M54,24 H72 A5,5 0 0 1 77,29 V40 A5,5 0 0 1 72,45 H54 A5,5 0 0 1 49,40 V29 A5,5 0 0 1 54,24 Z" />
-
-        <!-- The card, in the accent colour the app already uses for an active state -->
-        <path
-            android:fillColor="#00E676"
-            android:pathData="M55,26 H71 A3,3 0 0 1 74,29 V40 A3,3 0 0 1 71,43 H55 A3,3 0 0 1 52,40 V29 A3,3 0 0 1 55,26 Z" />
-    </group>
+    <!-- The one singled out -->
+    <path
+        android:fillColor="#00E676"
+        android:pathData="M36.5,65.5 H42.5 A6.5,6.5 0 0 1 49,72 V72 A6.5,6.5 0 0 1 42.5,78.5 H36.5 A6.5,6.5 0 0 1 30,72 V72 A6.5,6.5 0 0 1 36.5,65.5 Z" />
 </vector>

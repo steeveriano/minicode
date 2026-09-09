@@ -129,9 +129,16 @@ jobs:
       - name: Build FOSS debug APK
         run: ./gradlew assembleFossDebug
 
+      # Renamed before upload so both the downloaded archive and the .apk inside it carry the
+      # name, instead of the Gradle output name the artifact would otherwise inherit.
+      - name: Stage the APK under its release name
+        run: |
+          mkdir -p dist
+          cp app/build/outputs/apk/foss/debug/app-foss-debug.apk dist/MCPAndroidV3.apk
+
       - name: Upload APK
         uses: actions/upload-artifact@v7
         with:
-          name: app-foss-debug
-          path: app/build/outputs/apk/foss/debug/app-foss-debug.apk
+          name: MCPAndroidV3
+          path: dist/MCPAndroidV3.apk
           retention-days: 30
