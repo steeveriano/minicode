@@ -30,6 +30,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -85,6 +86,7 @@ fun ApprovalScreen(
         TopAppBar(
             title = { Text(stringResource(R.string.approval_title)) },
             windowInsets = WindowInsets(0),
+            colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
         )
         if (pending.isEmpty()) {
             Text(

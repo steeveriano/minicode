@@ -58,6 +58,37 @@
     <!-- Clipboard -->
     <string name="copied_to_clipboard">Copiado al portapapeles</string>
 
+    <string name="action_back">Volver</string>
+    <string name="action_remove">Quitar</string>
+    <string name="action_add">Agregar</string>
+    <string name="action_copy">Copiar</string>
+    <string name="action_generate_new">Generar uno nuevo</string>
+
+    <!-- Settings index groups -->
+    <string name="settings_group_connection">Conexión</string>
+    <string name="settings_group_security">Seguridad y acceso</string>
+    <string name="settings_group_device_data">Datos del dispositivo</string>
+
+    <!-- Event Channel screen -->
+    <string name="channel_title">Canal de eventos</string>
+    <string name="channel_endpoint_url_label">URL del endpoint</string>
+    <string name="channel_auth_token_label">Token de autenticación</string>
+    <string name="channel_auto_start_label">Iniciar al encender el teléfono</string>
+
+    <!-- WiFi Monitor screen -->
+    <string name="wifi_monitor_title">Monitor de WiFi</string>
+    <string name="wifi_monitor_ssid_label">SSID</string>
+    <string name="wifi_monitor_notify_discovered">Avisar al detectar la red</string>
+    <string name="wifi_monitor_notify_lost">Avisar al perder la red</string>
+    <string name="wifi_monitor_notify_connected">Avisar al conectarse</string>
+    <string name="wifi_monitor_notify_disconnected">Avisar al desconectarse</string>
+    <string name="wifi_monitor_scan_based">Depende del escaneo; puede tardar</string>
+    <string name="wifi_monitor_real_time">En tiempo real</string>
+
+    <!-- Notification filter screen -->
+    <string name="notification_filter_title">Filtro de notificaciones</string>
+    <string name="notification_filter_search_label">Buscar aplicaciones</string>
+
     <!-- Dashboard -->
     <string name="dashboard_service_mcp">Servidor MCP</string>
     <string name="dashboard_service_channel">Canal de eventos</string>

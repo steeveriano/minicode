@@ -56,6 +56,37 @@
     <!-- Clipboard -->
     <string name="copied_to_clipboard">Copied to clipboard</string>
 
+    <string name="action_back">Back</string>
+    <string name="action_remove">Remove</string>
+    <string name="action_add">Add</string>
+    <string name="action_copy">Copy</string>
+    <string name="action_generate_new">Generate new</string>
+
+    <!-- Settings index groups -->
+    <string name="settings_group_connection">Connection</string>
+    <string name="settings_group_security">Security and access</string>
+    <string name="settings_group_device_data">Device data</string>
+
+    <!-- Event Channel screen -->
+    <string name="channel_title">Event Channel</string>
+    <string name="channel_endpoint_url_label">Endpoint URL</string>
+    <string name="channel_auth_token_label">Auth Token</string>
+    <string name="channel_auto_start_label">Auto-start at boot</string>
+
+    <!-- WiFi Monitor screen -->
+    <string name="wifi_monitor_title">WiFi Monitor</string>
+    <string name="wifi_monitor_ssid_label">SSID</string>
+    <string name="wifi_monitor_notify_discovered">Notify on discovered</string>
+    <string name="wifi_monitor_notify_lost">Notify on lost</string>
+    <string name="wifi_monitor_notify_connected">Notify on connected</string>
+    <string name="wifi_monitor_notify_disconnected">Notify on disconnected</string>
+    <string name="wifi_monitor_scan_based">Scan-based, may be delayed</string>
+    <string name="wifi_monitor_real_time">Real-time</string>
+
+    <!-- Notification filter screen -->
+    <string name="notification_filter_title">Notification Filter</string>
+    <string name="notification_filter_search_label">Search apps</string>
+
     <!-- Dashboard -->
     <string name="dashboard_service_mcp">MCP Server</string>
     <string name="dashboard_service_channel">Event Channel</string>

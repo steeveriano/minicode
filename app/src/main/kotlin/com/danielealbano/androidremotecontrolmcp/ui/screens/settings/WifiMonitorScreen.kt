@@ -21,6 +21,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -28,8 +29,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.danielealbano.androidremotecontrolmcp.R
 import com.danielealbano.androidremotecontrolmcp.ui.viewmodels.ChannelViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -44,10 +48,14 @@ fun WifiMonitorScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("WiFi Monitor") },
+                title = { Text(stringResource(R.string.wifi_monitor_title)) },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            stringResource(R.string.action_back),
+                        )
                     }
                 },
             )
@@ -59,7 +67,7 @@ fun WifiMonitorScreen(
                     headlineContent = { Text(ssid) },
                     trailingContent = {
                         IconButton(onClick = { viewModel.removeWifiSsid(ssid) }) {
-                            Icon(Icons.Default.Delete, contentDescription = "Remove")
+                            Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.action_remove))
                         }
                     },
                 )
@@ -72,7 +80,7 @@ fun WifiMonitorScreen(
                     OutlinedTextField(
                         value = newSsid,
                         onValueChange = { newSsid = it },
-                        label = { Text("SSID") },
+                        label = { Text(stringResource(R.string.wifi_monitor_ssid_label)) },
                         modifier = Modifier.weight(1f),
                         singleLine = true,
                     )
@@ -84,14 +92,14 @@ fun WifiMonitorScreen(
                             }
                         },
                     ) {
-                        Icon(Icons.Default.Add, "Add")
+                        Icon(Icons.Default.Add, stringResource(R.string.action_add))
                     }
                 }
             }
             item {
                 ListItem(
-                    headlineContent = { Text("Notify on discovered") },
-                    supportingContent = { Text("Scan-based, may be delayed") },
+                    headlineContent = { Text(stringResource(R.string.wifi_monitor_notify_discovered)) },
+                    supportingContent = { Text(stringResource(R.string.wifi_monitor_scan_based)) },
                     trailingContent = {
                         Switch(
                             checked = config.wifi.notifyOnDiscovered,
@@ -102,8 +110,8 @@ fun WifiMonitorScreen(
             }
             item {
                 ListItem(
-                    headlineContent = { Text("Notify on lost") },
-                    supportingContent = { Text("Scan-based, may be delayed") },
+                    headlineContent = { Text(stringResource(R.string.wifi_monitor_notify_lost)) },
+                    supportingContent = { Text(stringResource(R.string.wifi_monitor_scan_based)) },
                     trailingContent = {
                         Switch(
                             checked = config.wifi.notifyOnLost,
@@ -114,8 +122,8 @@ fun WifiMonitorScreen(
             }
             item {
                 ListItem(
-                    headlineContent = { Text("Notify on connected") },
-                    supportingContent = { Text("Real-time") },
+                    headlineContent = { Text(stringResource(R.string.wifi_monitor_notify_connected)) },
+                    supportingContent = { Text(stringResource(R.string.wifi_monitor_real_time)) },
                     trailingContent = {
                         Switch(
                             checked = config.wifi.notifyOnConnected,
@@ -126,8 +134,8 @@ fun WifiMonitorScreen(
             }
             item {
                 ListItem(
-                    headlineContent = { Text("Notify on disconnected") },
-                    supportingContent = { Text("Real-time") },
+                    headlineContent = { Text(stringResource(R.string.wifi_monitor_notify_disconnected)) },
+                    supportingContent = { Text(stringResource(R.string.wifi_monitor_real_time)) },
                     trailingContent = {
                         Switch(
                             checked = config.wifi.notifyOnDisconnected,

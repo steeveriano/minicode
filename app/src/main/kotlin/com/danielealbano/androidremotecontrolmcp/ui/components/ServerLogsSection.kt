@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -38,16 +37,11 @@ fun ServerLogsSection(
     onShowMore: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    ElevatedCard(
-        modifier = modifier.fillMaxWidth(),
-    ) {
+    DashboardPanel(modifier = modifier) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(14.dp),
         ) {
-            Text(
-                text = stringResource(R.string.server_logs_title),
-                style = MaterialTheme.typography.titleLarge,
-            )
+            TileLabel(stringResource(R.string.server_logs_title))
 
             Spacer(modifier = Modifier.height(12.dp))
 

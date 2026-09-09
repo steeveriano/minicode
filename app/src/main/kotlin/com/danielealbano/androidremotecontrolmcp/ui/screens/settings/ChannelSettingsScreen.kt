@@ -29,6 +29,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -36,7 +37,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -44,6 +47,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
+import com.danielealbano.androidremotecontrolmcp.R
 import com.danielealbano.androidremotecontrolmcp.ui.viewmodels.ChannelViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -65,10 +69,14 @@ fun ChannelSettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Event Channel") },
+                title = { Text(stringResource(R.string.channel_title)) },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            stringResource(R.string.action_back),
+                        )
                     }
                 },
             )
@@ -81,7 +89,7 @@ fun ChannelSettingsScreen(
                 OutlinedTextField(
                     value = endpointUrlInput,
                     onValueChange = { viewModel.updateEndpointUrl(it) },
-                    label = { Text("Endpoint URL") },
+                    label = { Text(stringResource(R.string.channel_endpoint_url_label)) },
                     isError = endpointUrlError != null,
                     supportingText = endpointUrlError?.let { { Text(it) } },
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
@@ -92,7 +100,7 @@ fun ChannelSettingsScreen(
                 OutlinedTextField(
                     value = authTokenInput,
                     onValueChange = { viewModel.updateAuthToken(it) },
-                    label = { Text("Auth Token") },
+                    label = { Text(stringResource(R.string.channel_auth_token_label)) },
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                     singleLine = true,
                     keyboardOptions =
@@ -117,12 +125,18 @@ fun ChannelSettingsScreen(
                             IconButton(
                                 onClick = { clipboardManager.setText(AnnotatedString(authTokenInput)) },
                             ) {
-                                Icon(Icons.Default.ContentCopy, contentDescription = "Copy")
+                                Icon(
+                                    Icons.Default.ContentCopy,
+                                    contentDescription = stringResource(R.string.action_copy),
+                                )
                             }
                             IconButton(
                                 onClick = { viewModel.generateNewAuthToken() },
                             ) {
-                                Icon(Icons.Default.Refresh, contentDescription = "Generate new")
+                                Icon(
+                                    Icons.Default.Refresh,
+                                    contentDescription = stringResource(R.string.action_generate_new),
+                                )
                             }
                         }
                     },
@@ -130,7 +144,7 @@ fun ChannelSettingsScreen(
             }
             item {
                 ListItem(
-                    headlineContent = { Text("Auto-start at boot") },
+                    headlineContent = { Text(stringResource(R.string.channel_auto_start_label)) },
                     supportingContent = { Text("Start event channel when device boots") },
                     trailingContent = {
                         Switch(

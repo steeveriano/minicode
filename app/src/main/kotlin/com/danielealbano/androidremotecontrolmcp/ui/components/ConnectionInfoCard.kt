@@ -18,7 +18,6 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -168,16 +167,11 @@ fun ConnectionInfoCard(
             }
         }
 
-    ElevatedCard(
-        modifier = modifier.fillMaxWidth(),
-    ) {
+    DashboardPanel(modifier = modifier) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(14.dp),
         ) {
-            Text(
-                text = stringResource(R.string.connection_info_title),
-                style = MaterialTheme.typography.titleLarge,
-            )
+            TileLabel(stringResource(R.string.connection_info_title))
 
             Spacer(modifier = Modifier.height(12.dp))
 
