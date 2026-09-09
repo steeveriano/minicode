@@ -10,6 +10,7 @@ import {
 import { formatBytes, formatCount } from '../snapshot';
 import { FileIcon, FolderIcon } from '../components/icons';
 import { Preview } from '../components/Preview';
+import { ProposeBar } from '../components/ProposeBar';
 import { describeType } from '../components/fileType';
 import { GROUP_LABELS, groupBytes, groupEntries, type GroupBy } from '../components/grouping';
 
@@ -27,7 +28,7 @@ const COLUMNS: { id: Column; label: string; numeric: boolean }[] = [
   { id: 'size', label: 'Tamaño', numeric: true },
 ];
 
-export function BrowserScreen({ slug }: { slug: string }) {
+export function BrowserScreen({ slug, onProposed }: { slug: string; onProposed: () => void }) {
   const [locations, setLocations] = useState<StorageLocation[] | null>(null);
   const [place, setPlace] = useState<Place | null>(null);
   const [entries, setEntries] = useState<FileEntry[] | null>(null);
@@ -549,6 +550,17 @@ export function BrowserScreen({ slug }: { slug: string }) {
           )}
         </aside>
       </div>
+
+      {picked.count > 0 && place && (
+        <ProposeBar
+          deviceSlug={slug}
+          locationId={place.locationId}
+          folderPath={place.path}
+          selected={rows.filter((r) => checked.has(r.name))}
+          onClear={() => setChecked(new Set())}
+          onProposed={onProposed}
+        />
+      )}
 
       <div className="ex-status-bar">
         <span>

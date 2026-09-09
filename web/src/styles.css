@@ -1435,3 +1435,118 @@ button.linklike:hover {
   font-size: 12px;
   white-space: nowrap;
 }
+
+/* ---------------------------------------------------------------- proposals */
+
+.propose {
+  border-top: 1px solid var(--outline);
+  background: var(--panel-2);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.propose-summary {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 13.5px;
+}
+
+.propose-kinds {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.propose-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.field.wide {
+  width: 100%;
+}
+
+.field.wide input {
+  min-height: 38px;
+  background: var(--panel);
+  border: 1px solid var(--outline-hi);
+  border-radius: 4px;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13.5px;
+  text-transform: none;
+  letter-spacing: normal;
+  padding: 8px 11px;
+  width: 100%;
+}
+
+.ex-action.approve {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+
+.ex-action.approve:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.ex-action.approve:disabled {
+  background: transparent;
+  color: var(--ink-2);
+  border-color: var(--outline-hi);
+}
+
+.proposals {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.proposal {
+  background: var(--panel);
+  border: 1px solid var(--outline);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.proposal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.proposal-title h2 {
+  margin: 0;
+  font-size: 16.5px;
+}
+
+.proposal-title p {
+  margin: 4px 0 0;
+  font-size: 13.5px;
+}
+
+.proposal-meta {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--ink-2);
+}
+
+.proposal-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.accent {
+  color: var(--accent);
+}
