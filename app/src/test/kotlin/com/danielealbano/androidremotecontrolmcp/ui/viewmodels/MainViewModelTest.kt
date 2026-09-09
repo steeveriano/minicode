@@ -18,6 +18,7 @@ import com.danielealbano.androidremotecontrolmcp.data.repository.SettingsReposit
 import com.danielealbano.androidremotecontrolmcp.mcp.oauth.OAuthApprovalCoordinator
 import com.danielealbano.androidremotecontrolmcp.mcp.oauth.PendingApproval
 import com.danielealbano.androidremotecontrolmcp.services.power.BatteryOptimizationManager
+import com.danielealbano.androidremotecontrolmcp.services.storage.PermissionChecker
 import com.danielealbano.androidremotecontrolmcp.services.storage.StorageLocationProvider
 import com.danielealbano.androidremotecontrolmcp.services.tunnel.TunnelManager
 import com.danielealbano.androidremotecontrolmcp.utils.PermissionUtils
@@ -59,6 +60,7 @@ class MainViewModelTest {
     private lateinit var storageLocationProvider: StorageLocationProvider
     private lateinit var batteryOptimizationManager: BatteryOptimizationManager
     private lateinit var approvalCoordinator: OAuthApprovalCoordinator
+    private lateinit var permissionChecker: PermissionChecker
     private lateinit var configFlow: MutableStateFlow<ServerConfig>
     private lateinit var tunnelStatusFlow: MutableStateFlow<TunnelStatus>
     private lateinit var pendingApprovalsFlow: MutableStateFlow<List<PendingApproval>>
@@ -103,6 +105,7 @@ class MainViewModelTest {
 
         pendingApprovalsFlow = MutableStateFlow(emptyList())
         approvalCoordinator = mockk(relaxed = true)
+        permissionChecker = mockk(relaxed = true)
         every { approvalCoordinator.observePending() } returns pendingApprovalsFlow
 
         viewModel =
@@ -113,6 +116,7 @@ class MainViewModelTest {
                 batteryOptimizationManager,
                 testDispatcher,
                 approvalCoordinator,
+                permissionChecker,
             )
     }
 
@@ -472,6 +476,7 @@ class MainViewModelTest {
                     batteryOptimizationManager,
                     testDispatcher,
                     approvalCoordinator,
+                    permissionChecker,
                 )
             advanceUntilIdle()
 
@@ -526,6 +531,7 @@ class MainViewModelTest {
                     batteryOptimizationManager,
                     testDispatcher,
                     approvalCoordinator,
+                    permissionChecker,
                 )
             advanceUntilIdle()
 
@@ -1089,6 +1095,7 @@ class MainViewModelTest {
                     batteryOptimizationManager,
                     testDispatcher,
                     approvalCoordinator,
+                    permissionChecker,
                 )
             advanceUntilIdle()
 

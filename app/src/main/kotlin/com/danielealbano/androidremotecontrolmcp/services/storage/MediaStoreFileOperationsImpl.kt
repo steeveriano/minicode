@@ -479,13 +479,20 @@ class MediaStoreFileOperationsImpl
                 )
 
         /**
-         * True when MediaStore itself scopes what this app can read in [collection]:
-         * either the full read permission is granted, or the user granted a visual-media
-         * selection (READ_MEDIA_VISUAL_USER_SELECTED). In both cases the app-side owner
-         * filter must be dropped so provider-visible non-owned rows are returned.
+         * Whether rows in [collection] can be read beyond the ones this app wrote.
+         *
+         * All-files access is checked first and covers every collection, including those with no
+         * `readMediaPermission` of their own — Downloads is the one that matters: MediaStore treats
+         * a PDF as neither image, video nor audio, so no READ_MEDIA_* grant ever reveals one.
+         *
+         * Otherwise MediaStore scopes the read itself: either the full read permission is granted,
+         * or the user granted a visual-media selection (READ_MEDIA_VISUAL_USER_SELECTED). In every
+         * case that returns true, the app-side owner filter must be dropped so provider-visible
+         * non-owned rows are returned.
          */
-        private fun hasNonOwnedReadAccess(collection: MediaCollection): Boolean =
-            collection.readMediaPermission?.let { permission ->
+        private fun hasNonOwnedReadAccess(collection: MediaCollection): Boolean {
+            if (permissionChecker.hasAllFilesAccess()) return true
+            return collection.readMediaPermission?.let { permission ->
                 permissionChecker.hasPermission(permission) ||
                     (
                         collection.isVisual &&
@@ -494,6 +501,7 @@ class MediaStoreFileOperationsImpl
                             )
                     )
             } == true
+        }
 
         private fun selectCollectionForMimeType(
             builtin: BuiltinStorageLocation,

@@ -90,6 +90,7 @@
     <string name="help_cloudflare_extra_args">Extra command-line flags passed straight to cloudflared. Leave it empty unless you are working around a specific problem — the usual one is --edge, to bypass DNS trouble on a restrictive network.</string>
     <string name="help_ngrok_authtoken">The token from your ngrok account, under “Your Authtoken”. Without it ngrok refuses to open the tunnel. Treat it like a password.</string>
     <string name="help_ngrok_domain">A fixed address on your ngrok account, so the URL survives restarts. Leave it empty and ngrok assigns a random one each time.</string>
+    <string name="help_all_files_access">The broadest storage permission Android has. It lets the app — and therefore any MCP client that reaches it — read every file on shared storage, documents included. Grant it only if the documents you need are outside the folders you can authorize individually, and remember a tunnel makes that reach public.</string>
     <string name="help_storage_location">A folder you have authorized the app to work in. The app can only see folders you add here — everything else on the phone stays out of reach.</string>
     <string name="help_allow_write">Lets the MCP create and modify files in this location. With it off, the location is read-only.</string>
     <string name="help_allow_delete">Lets the MCP delete files here — and moving a file out of a folder counts as deleting it from that folder, so a move needs this too.</string>
@@ -334,6 +335,13 @@
     <string name="storage_builtin_all_files_granted">All files access granted</string>
     <string name="storage_builtin_manage_access">Manage access</string>
     <string name="storage_limits_title">Limits and downloads</string>
+    <!-- All-files access -->
+    <string name="storage_all_files_title">All-files access</string>
+    <string name="storage_all_files_description">MediaStore treats a PDF, spreadsheet or archive as neither image, video nor audio, so documents stay invisible without this — and Android will not let the folder picker grant Download/ at all.</string>
+    <string name="storage_all_files_granted">Granted — every file on shared storage is readable</string>
+    <string name="storage_all_files_not_granted">Not granted — only media and the folders you added</string>
+    <string name="storage_all_files_grant_button">Grant all-files access</string>
+
     <string name="storage_file_size_limit_label">File Size Limit (MB)</string>
     <string name="storage_file_size_limit_error">Must be between %1$d and %2$d MB</string>
     <string name="storage_download_timeout_label">Download Timeout (seconds)</string>

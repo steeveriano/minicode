@@ -249,12 +249,20 @@ class StorageLocationProviderImpl
 
         private fun buildBuiltinDisplayName(entry: BuiltinStorageLocation): String {
             val permissioned = entry.collections.filter { it.readMediaPermission != null }
-            if (permissioned.isEmpty()) return "${entry.displayBaseName} - Only owned files"
             val granted =
                 permissioned.filter { collection ->
                     collection.readMediaPermission?.let(permissionChecker::hasPermission) == true
                 }
             return when {
+                // Mirrors computeAccessLevel: the name has to agree with the level beside it.
+                permissionChecker.hasAllFilesAccess() -> {
+                    "${entry.displayBaseName} - All files"
+                }
+
+                permissioned.isEmpty() -> {
+                    "${entry.displayBaseName} - Only owned files"
+                }
+
                 granted.size == permissioned.size -> {
                     "${entry.displayBaseName} - All files"
                 }
@@ -277,15 +285,24 @@ class StorageLocationProviderImpl
 
         private fun computeAccessLevel(entry: BuiltinStorageLocation): BuiltinAccessLevel {
             val permissioned = entry.collections.filter { it.readMediaPermission != null }
-            if (permissioned.isEmpty()) return BuiltinAccessLevel.OWNED_ONLY
             val granted =
                 permissioned.filter { collection ->
                     collection.readMediaPermission?.let(permissionChecker::hasPermission) == true
                 }
             return when {
+                // All-files access covers every collection, so it settles the level before the
+                // per-type grants are consulted — including Downloads, which has no per-type grant
+                // and would otherwise always report OWNED_ONLY.
+                permissionChecker.hasAllFilesAccess() -> BuiltinAccessLevel.FULL
+
+                permissioned.isEmpty() -> BuiltinAccessLevel.OWNED_ONLY
+
                 granted.size == permissioned.size -> BuiltinAccessLevel.FULL
+
                 hasPartialVisualAccess(entry) -> BuiltinAccessLevel.PARTIAL
+
                 granted.isEmpty() -> BuiltinAccessLevel.OWNED_ONLY
+
                 else -> BuiltinAccessLevel.PARTIAL
             }
         }

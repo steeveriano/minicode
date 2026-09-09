@@ -11,6 +11,7 @@ import android.util.Log
 import androidx.documentfile.provider.DocumentFile
 import com.danielealbano.androidremotecontrolmcp.data.model.BuiltinAccessLevel
 import com.danielealbano.androidremotecontrolmcp.data.model.BuiltinPermissions
+import com.danielealbano.androidremotecontrolmcp.data.model.BuiltinStorageLocation
 import com.danielealbano.androidremotecontrolmcp.data.model.StorageBackend
 import com.danielealbano.androidremotecontrolmcp.data.repository.SettingsRepository
 import io.mockk.Runs
@@ -74,6 +75,7 @@ class StorageLocationProviderTest {
         // Default mocks for builtin locations support
         coEvery { mockSettingsRepository.getBuiltinLocationPermissions() } returns emptyMap()
         every { mockPermissionChecker.hasPermission(any()) } returns false
+        every { mockPermissionChecker.hasAllFilesAccess() } returns false
         val mockExternalDir = mockk<java.io.File>()
         every { mockExternalDir.path } returns "/storage/emulated/0"
         every { Environment.getExternalStorageDirectory() } returns mockExternalDir
@@ -92,6 +94,51 @@ class StorageLocationProviderTest {
     // ─────────────────────────────────────────────────────────────────────
     // getAllLocations
     // ─────────────────────────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("all-files access")
+    inner class AllFilesAccess {
+        @Test
+        fun `grants FULL to every builtin location, including Downloads`() =
+            runTest {
+                // Downloads has no per-type media permission of its own, so before all-files access
+                // it can only ever report OWNED_ONLY — which is exactly why documents were invisible.
+                coEvery { mockSettingsRepository.getStoredLocations() } returns emptyList()
+                every { mockPermissionChecker.hasAllFilesAccess() } returns true
+
+                val locations = provider.getAllLocations().filter { it.isBuiltin }
+
+                assertTrue(locations.isNotEmpty())
+                assertTrue(locations.all { it.accessLevel == BuiltinAccessLevel.FULL }) {
+                    "Expected every builtin to be FULL, got " +
+                        locations.joinToString { "${it.id}=${it.accessLevel}" }
+                }
+            }
+
+        @Test
+        fun `Downloads is owned-only without it`() =
+            runTest {
+                coEvery { mockSettingsRepository.getStoredLocations() } returns emptyList()
+                every { mockPermissionChecker.hasAllFilesAccess() } returns false
+
+                val downloads =
+                    provider.getAllLocations().first { it.id == BuiltinStorageLocation.DOWNLOADS.locationId }
+
+                assertEquals(BuiltinAccessLevel.OWNED_ONLY, downloads.accessLevel)
+            }
+
+        @Test
+        fun `the display name agrees with the level it is shown beside`() =
+            runTest {
+                coEvery { mockSettingsRepository.getStoredLocations() } returns emptyList()
+                every { mockPermissionChecker.hasAllFilesAccess() } returns true
+
+                val downloads =
+                    provider.getAllLocations().first { it.id == BuiltinStorageLocation.DOWNLOADS.locationId }
+
+                assertTrue(downloads.name.endsWith("All files")) { "Got '${downloads.name}'" }
+            }
+    }
 
     @Nested
     @DisplayName("GetAllLocations")

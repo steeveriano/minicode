@@ -42,6 +42,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -59,6 +60,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.documentfile.provider.DocumentFile
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.danielealbano.androidremotecontrolmcp.R
 import com.danielealbano.androidremotecontrolmcp.data.model.BuiltinAccessLevel
@@ -84,6 +88,7 @@ fun StorageSettingsScreen(
     val context = androidx.compose.ui.platform.LocalContext.current
 
     val serverConfig by viewModel.serverConfig.collectAsStateWithLifecycle()
+    val allFilesAccessGranted by viewModel.isAllFilesAccessGranted.collectAsStateWithLifecycle()
     val storageLocations by viewModel.storageLocations.collectAsStateWithLifecycle()
     val fileSizeLimitInput by viewModel.fileSizeLimitInput.collectAsStateWithLifecycle()
     val fileSizeLimitError by viewModel.fileSizeLimitError.collectAsStateWithLifecycle()
@@ -96,6 +101,20 @@ fun StorageSettingsScreen(
         viewModel.storageError.collect { message ->
             snackbarHostState.showSnackbar(message)
         }
+    }
+
+    // All-files access is granted on a system screen, not through a permission dialog, so nothing
+    // calls back into the app: the only reliable moment to re-read it is when this screen resumes.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer =
+            LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) {
+                    viewModel.refreshPermissionStatus(context)
+                }
+            }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     // Dialog state
@@ -160,6 +179,44 @@ fun StorageSettingsScreen(
             ) {
                 val builtinLocations = storageLocations.filter { it.isBuiltin }
                 val userLocations = storageLocations.filter { !it.isBuiltin }
+
+                Column {
+                    SectionIntro(stringResource(R.string.storage_all_files_description))
+                    SettingsSection(
+                        title = stringResource(R.string.storage_all_files_title),
+                        help =
+                            HelpText(
+                                stringResource(R.string.storage_all_files_title),
+                                stringResource(R.string.help_all_files_access),
+                            ),
+                    ) {
+                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text(
+                                text =
+                                    if (allFilesAccessGranted) {
+                                        stringResource(R.string.storage_all_files_granted)
+                                    } else {
+                                        stringResource(R.string.storage_all_files_not_granted)
+                                    },
+                                style = MaterialTheme.typography.bodyMedium,
+                                color =
+                                    if (allFilesAccessGranted) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
+                            )
+                            if (!allFilesAccessGranted) {
+                                OutlinedButton(
+                                    onClick = { context.startActivity(allFilesAccessIntent(context)) },
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    Text(stringResource(R.string.storage_all_files_grant_button))
+                                }
+                            }
+                        }
+                    }
+                }
 
                 Column {
                     SectionIntro(stringResource(R.string.storage_builtin_locations_description))
@@ -627,6 +684,27 @@ private fun BuiltinStorageLocationRow(
     }
     if (showDivider) {
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    }
+}
+
+/**
+ * Where the user grants all-files access.
+ *
+ * There is no permission dialog for this one — it is a system settings screen, and it is reached
+ * per-app. Some devices do not implement the per-app screen, so the call falls back to the global
+ * list, which every device that supports the permission has.
+ */
+internal fun allFilesAccessIntent(context: android.content.Context): android.content.Intent {
+    val perApp =
+        android.content
+            .Intent(
+                android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                android.net.Uri.parse("package:${context.packageName}"),
+            )
+    return if (perApp.resolveActivity(context.packageManager) != null) {
+        perApp
+    } else {
+        android.content.Intent(android.provider.Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
     }
 }
 

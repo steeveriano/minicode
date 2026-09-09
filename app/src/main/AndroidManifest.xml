@@ -37,6 +37,18 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
 
     <!-- Media read access (optional — enables "all files" mode for built-in storage locations) -->
+    <!--
+      All-files access. MediaStore classifies a PDF, a spreadsheet or an archive as neither image,
+      video nor audio, so the READ_MEDIA_* permissions below never reveal one: without this, a
+      document is visible only inside a folder the user granted through the SAF picker, and
+      Android refuses to let the picker grant Download/ at all — the one place most downloaded
+      documents land.
+
+      This is the broadest storage permission Android has. It is never requested on its own: the
+      user has to go to Storage settings and grant it explicitly through the system screen.
+    -->
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />

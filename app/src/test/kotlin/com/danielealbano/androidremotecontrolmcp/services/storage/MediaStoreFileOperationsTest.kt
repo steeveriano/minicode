@@ -84,6 +84,7 @@ class MediaStoreFileOperationsTest {
         coEvery { mockStorageLocationProvider.isDeleteAllowed(any()) } returns true
         coEvery { mockSettingsRepository.getServerConfig() } returns ServerConfig()
         every { mockPermissionChecker.hasPermission(any()) } returns false
+        every { mockPermissionChecker.hasAllFilesAccess() } returns false
 
         mockkObject(BuiltinStorageLocation.DOWNLOADS)
         every { BuiltinStorageLocation.DOWNLOADS.collections } returns listOf(testCollection(fakeCollectionUri))

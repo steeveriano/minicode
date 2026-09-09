@@ -23,6 +23,7 @@ import com.danielealbano.androidremotecontrolmcp.services.accessibility.McpAcces
 import com.danielealbano.androidremotecontrolmcp.services.mcp.McpServerService
 import com.danielealbano.androidremotecontrolmcp.services.notifications.McpNotificationListenerService
 import com.danielealbano.androidremotecontrolmcp.services.power.BatteryOptimizationManager
+import com.danielealbano.androidremotecontrolmcp.services.storage.PermissionChecker
 import com.danielealbano.androidremotecontrolmcp.services.storage.StorageLocationProvider
 import com.danielealbano.androidremotecontrolmcp.services.tunnel.TunnelManager
 import com.danielealbano.androidremotecontrolmcp.utils.Logger
@@ -52,6 +53,7 @@ class MainViewModel
         private val batteryOptimizationManager: BatteryOptimizationManager,
         @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
         private val approvalCoordinator: OAuthApprovalCoordinator,
+        private val permissionChecker: PermissionChecker,
     ) : ViewModel() {
         private val _serverConfig = MutableStateFlow(ServerConfig())
         val serverConfig: StateFlow<ServerConfig> = _serverConfig.asStateFlow()
@@ -85,6 +87,17 @@ class MainViewModel
 
         private val _isLocationPermissionGranted = MutableStateFlow(false)
         val isLocationPermissionGranted: StateFlow<Boolean> = _isLocationPermissionGranted.asStateFlow()
+
+        private val _isAllFilesAccessGranted = MutableStateFlow(false)
+
+        /**
+         * Whether the user granted all-files access.
+         *
+         * Kept separate from the storage locations' access levels: those would also read FULL when
+         * every per-type media grant happens to be in place, and the Storage screen has to be able
+         * to say which of the two the user actually has.
+         */
+        val isAllFilesAccessGranted: StateFlow<Boolean> = _isAllFilesAccessGranted.asStateFlow()
 
         private val _isBatteryOptimizationIgnored = MutableStateFlow(false)
         val isBatteryOptimizationIgnored: StateFlow<Boolean> = _isBatteryOptimizationIgnored.asStateFlow()
@@ -293,6 +306,8 @@ class MainViewModel
                     McpNotificationListenerService::class.java,
                 )
             _isBatteryOptimizationIgnored.value = batteryOptimizationManager.isIgnoringBatteryOptimizations()
+            _isAllFilesAccessGranted.value = permissionChecker.hasAllFilesAccess()
+
             refreshStorageLocations()
         }
 

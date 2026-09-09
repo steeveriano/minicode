@@ -92,6 +92,7 @@
     <string name="help_cloudflare_extra_args">Opciones de línea de comandos que se le pasan directo a cloudflared. Dejalo vacío salvo que estés sorteando un problema concreto — el más común es --edge, para evitar problemas de DNS en una red restrictiva.</string>
     <string name="help_ngrok_authtoken">El token de tu cuenta de ngrok, en «Your Authtoken». Sin él ngrok se niega a abrir el túnel. Tratalo como una contraseña.</string>
     <string name="help_ngrok_domain">Una dirección fija de tu cuenta de ngrok, para que la URL sobreviva los reinicios. Dejalo vacío y ngrok asigna una aleatoria cada vez.</string>
+    <string name="help_all_files_access">El permiso de almacenamiento más amplio que tiene Android. Le permite a la app — y por lo tanto a cualquier cliente MCP que la alcance — leer todo archivo del almacenamiento compartido, documentos incluidos. Concedelo solo si los documentos que necesitás están fuera de las carpetas que podés autorizar una por una, y tené presente que un túnel vuelve público ese alcance.</string>
     <string name="help_storage_location">Una carpeta que autorizaste a la app a usar. La app solo ve las carpetas que agregues acá — el resto del teléfono queda fuera de su alcance.</string>
     <string name="help_allow_write">Permite que el MCP cree y modifique archivos en esta ubicación. Si está apagado, la ubicación es de solo lectura.</string>
     <string name="help_allow_delete">Permite que el MCP borre archivos acá — y mover un archivo fuera de una carpeta cuenta como borrarlo de esa carpeta, así que mover también lo necesita.</string>
@@ -334,6 +335,13 @@
     <string name="storage_builtin_all_files_granted">Acceso a todos los archivos concedido</string>
     <string name="storage_builtin_manage_access">Gestionar acceso</string>
     <string name="storage_limits_title">Límites y descargas</string>
+    <!-- All-files access -->
+    <string name="storage_all_files_title">Acceso a todos los archivos</string>
+    <string name="storage_all_files_description">Para MediaStore, un PDF, una planilla o un comprimido no son ni imagen, ni video, ni audio: sin esto los documentos quedan invisibles — y Android no permite que el selector de carpetas autorice Download/ de ninguna manera.</string>
+    <string name="storage_all_files_granted">Concedido — todo archivo del almacenamiento compartido es legible</string>
+    <string name="storage_all_files_not_granted">No concedido — solo medios y las carpetas que agregaste</string>
+    <string name="storage_all_files_grant_button">Conceder acceso a todos los archivos</string>
+
     <string name="storage_file_size_limit_label">Tamaño máximo de archivo (MB)</string>
     <string name="storage_file_size_limit_error">Debe estar entre %1$d y %2$d MB</string>
     <string name="storage_download_timeout_label">Tiempo límite de descarga (segundos)</string>
