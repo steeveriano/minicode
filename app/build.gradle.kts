@@ -507,6 +507,19 @@ androidComponents {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+
+    // The tunnel integration tests open a real tunnel: the ngrok one needs an NGROK_AUTHTOKEN and
+    // the Cloudflare one needs outbound network to Cloudflare's edge. On a runner that has
+    // neither they fail for reasons unrelated to the code under test, which turns a red build
+    // into noise and hides real regressions. Opt in with -PexcludeNetworkTests to skip them; the
+    // default is unchanged, so a runner that does have the credential still runs them.
+    if (project.hasProperty("excludeNetworkTests")) {
+        filter {
+            excludeTestsMatching("*TunnelIntegrationTest")
+            isFailOnNoMatchingTests = false
+        }
+    }
+
     maxHeapSize = "3g"
     // Distribute tests across all available CPU cores for faster execution.
     maxParallelForks = (Runtime.getRuntime().availableProcessors()).coerceAtLeast(1)

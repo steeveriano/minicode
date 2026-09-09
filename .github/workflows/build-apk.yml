@@ -124,7 +124,7 @@ jobs:
       # Runs before the APK so a behavioural regression fails the job in the cheap step rather
       # than after a full assemble.
       - name: Run unit and integration tests
-        run: ./gradlew :app:testFossDebugUnitTest
+        run: ./gradlew :app:testFossDebugUnitTest -PexcludeNetworkTests
 
       - name: Build FOSS debug APK
         run: ./gradlew assembleFossDebug
