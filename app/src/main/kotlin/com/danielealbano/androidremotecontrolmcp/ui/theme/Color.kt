@@ -6,65 +6,81 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.graphics.Color
 
-// Primary: Modern blue-purple
-val PrimaryLight = Color(0xFF4A5FE0)
-val OnPrimaryLight = Color(0xFFFFFFFF)
-val PrimaryContainerLight = Color(0xFFDEE0FF)
-val OnPrimaryContainerLight = Color(0xFF00105C)
+/*
+ * A deliberate palette rather than the wallpaper's.
+ *
+ * The app previously ran on dynamic colour, so its identity was whatever Material You derived from
+ * the user's wallpaper — which is why it looked like nothing in particular. This palette is fixed
+ * and anchored on the launcher icon's accent, so the icon, the running indicator and the primary
+ * action are all the same green, and the app reads as one thing.
+ *
+ * Dark is the reference design: this is a console for a device that is doing work, and the accent
+ * only carries at that intensity against a near-black ground. The light scheme keeps the same
+ * hues and darkens the accent to hold contrast on a pale surface.
+ */
 
-// Secondary: Teal accent
-val SecondaryLight = Color(0xFF5B5D72)
-val OnSecondaryLight = Color(0xFFFFFFFF)
-val SecondaryContainerLight = Color(0xFFE0E0F9)
-val OnSecondaryContainerLight = Color(0xFF181A2C)
+/** The launcher icon's accent. Used for the running state and the primary action. */
+val AccentGreen = Color(0xFF00E676)
 
-// Tertiary: Soft violet
-val TertiaryLight = Color(0xFF77536D)
-val OnTertiaryLight = Color(0xFFFFFFFF)
-val TertiaryContainerLight = Color(0xFFFFD7F1)
-val OnTertiaryContainerLight = Color(0xFF2D1228)
+/** Same hue, darkened enough to sit on a light surface without vibrating. */
+val AccentGreenDeep = Color(0xFF00894A)
 
-// Error
-val ErrorLight = Color(0xFFBA1A1A)
-val OnErrorLight = Color(0xFFFFFFFF)
-val ErrorContainerLight = Color(0xFFFFDAD6)
-val OnErrorContainerLight = Color(0xFF410002)
+// ── Dark (reference) ─────────────────────────────────────────────────────────
+val PrimaryDark = AccentGreen
+val OnPrimaryDark = Color(0xFF00210F)
+val PrimaryContainerDark = Color(0xFF0C3D25)
+val OnPrimaryContainerDark = Color(0xFF8CFFC0)
 
-// Surface and background
-val SurfaceLight = Color(0xFFFBF8FF)
-val OnSurfaceLight = Color(0xFF1B1B21)
-val SurfaceVariantLight = Color(0xFFE3E1EC)
-val OnSurfaceVariantLight = Color(0xFF46464F)
-val OutlineLight = Color(0xFF767680)
-val OutlineVariantLight = Color(0xFFC7C5D0)
+val SecondaryDark = Color(0xFF9FC7B0)
+val OnSecondaryDark = Color(0xFF0B2318)
+val SecondaryContainerDark = Color(0xFF1B3A2A)
+val OnSecondaryContainerDark = Color(0xFFC4E8D3)
 
-// Dark theme
-val PrimaryDark = Color(0xFFBAC3FF)
-val OnPrimaryDark = Color(0xFF0F2391)
-val PrimaryContainerDark = Color(0xFF2D43C7)
-val OnPrimaryContainerDark = Color(0xFFDEE0FF)
+val TertiaryDark = Color(0xFF7FD3E8)
+val OnTertiaryDark = Color(0xFF00212B)
+val TertiaryContainerDark = Color(0xFF0D3A46)
+val OnTertiaryContainerDark = Color(0xFFB8ECFA)
 
-val SecondaryDark = Color(0xFFC4C4DD)
-val OnSecondaryDark = Color(0xFF2D2F42)
-val SecondaryContainerDark = Color(0xFF434559)
-val OnSecondaryContainerDark = Color(0xFFE0E0F9)
-
-val TertiaryDark = Color(0xFFE5BAD8)
-val OnTertiaryDark = Color(0xFF44263E)
-val TertiaryContainerDark = Color(0xFF5D3C55)
-val OnTertiaryContainerDark = Color(0xFFFFD7F1)
-
-val ErrorDark = Color(0xFFFFB4AB)
-val OnErrorDark = Color(0xFF690005)
-val ErrorContainerDark = Color(0xFF93000A)
+val ErrorDark = Color(0xFFFF6B6B)
+val OnErrorDark = Color(0xFF3A0000)
+val ErrorContainerDark = Color(0xFF5C1414)
 val OnErrorContainerDark = Color(0xFFFFDAD6)
 
-val SurfaceDark = Color(0xFF131318)
-val OnSurfaceDark = Color(0xFFE4E1E9)
-val SurfaceVariantDark = Color(0xFF46464F)
-val OnSurfaceVariantDark = Color(0xFFC7C5D0)
-val OutlineDark = Color(0xFF90909A)
-val OutlineVariantDark = Color(0xFF46464F)
+/** Near-black with a faint green cast, so the accent reads as belonging to the surface. */
+val SurfaceDark = Color(0xFF0A0F0C)
+val OnSurfaceDark = Color(0xFFE4EDE7)
+val SurfaceVariantDark = Color(0xFF161E1A)
+val OnSurfaceVariantDark = Color(0xFF93A69B)
+val OutlineDark = Color(0xFF2B3A31)
+val OutlineVariantDark = Color(0xFF1E2A23)
+
+// ── Light ────────────────────────────────────────────────────────────────────
+val PrimaryLight = AccentGreenDeep
+val OnPrimaryLight = Color(0xFFFFFFFF)
+val PrimaryContainerLight = Color(0xFFB6F5D2)
+val OnPrimaryContainerLight = Color(0xFF002313)
+
+val SecondaryLight = Color(0xFF3E6552)
+val OnSecondaryLight = Color(0xFFFFFFFF)
+val SecondaryContainerLight = Color(0xFFC4E8D3)
+val OnSecondaryContainerLight = Color(0xFF002012)
+
+val TertiaryLight = Color(0xFF00697F)
+val OnTertiaryLight = Color(0xFFFFFFFF)
+val TertiaryContainerLight = Color(0xFFB8ECFA)
+val OnTertiaryContainerLight = Color(0xFF001F27)
+
+val ErrorLight = Color(0xFFB3261E)
+val OnErrorLight = Color(0xFFFFFFFF)
+val ErrorContainerLight = Color(0xFFF9DEDC)
+val OnErrorContainerLight = Color(0xFF410E0B)
+
+val SurfaceLight = Color(0xFFF6F9F7)
+val OnSurfaceLight = Color(0xFF0A0F0C)
+val SurfaceVariantLight = Color(0xFFE3EAE5)
+val OnSurfaceVariantLight = Color(0xFF44534A)
+val OutlineLight = Color(0xFF748076)
+val OutlineVariantLight = Color(0xFFC7D2CA)
 
 /** Amber used for advisory warnings (yellow triangle). ARGB 0xFFF9A825. */
 val WarningAmber = Color(0xFFF9A825)
@@ -87,6 +103,8 @@ val LightColorScheme =
         onError = OnErrorLight,
         errorContainer = ErrorContainerLight,
         onErrorContainer = OnErrorContainerLight,
+        background = SurfaceLight,
+        onBackground = OnSurfaceLight,
         surface = SurfaceLight,
         onSurface = OnSurfaceLight,
         surfaceVariant = SurfaceVariantLight,
@@ -113,6 +131,10 @@ val DarkColorScheme =
         onError = OnErrorDark,
         errorContainer = ErrorContainerDark,
         onErrorContainer = OnErrorContainerDark,
+        // Scaffold paints `background`; without it the screen keeps Material's default dark grey
+        // behind these near-black panels and the whole design reads as mismatched.
+        background = SurfaceDark,
+        onBackground = OnSurfaceDark,
         surface = SurfaceDark,
         onSurface = OnSurfaceDark,
         surfaceVariant = SurfaceVariantDark,

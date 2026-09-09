@@ -15,7 +15,7 @@ The app runs directly on your Android device (or emulator) and exposes an HTTP s
 
 This is a fork of [danielealbano/android-remote-control-mcp](https://github.com/danielealbano/android-remote-control-mcp), created and maintained by **Daniele Salvatore Albano**, who wrote the MCP server, the accessibility layer, the tunnels and Privacy Mode that everything here is built on.
 
-The fork adds storage analysis and organisation tooling and a Spanish translation. It stays under the original MIT licence, and the upstream copyright in [LICENSE.md](LICENSE.md) is unchanged — see [Credits](#credits).
+The fork is maintained by **Steeve Riano** ([tierraparaiso.net](https://www.tierraparaiso.net)) and adds storage analysis and organisation tooling and a Spanish translation. It stays under the original MIT licence, and the upstream copyright in [LICENSE.md](LICENSE.md) is unchanged — see [Credits](#credits).
 
 ---
 

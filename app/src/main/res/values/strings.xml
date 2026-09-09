@@ -56,8 +56,26 @@
     <!-- Clipboard -->
     <string name="copied_to_clipboard">Copied to clipboard</string>
 
+    <!-- Dashboard -->
+    <string name="dashboard_service_mcp">MCP Server</string>
+    <string name="dashboard_service_channel">Event Channel</string>
+    <string name="dashboard_endpoint_summary">%1$s · port %2$d</string>
+    <string name="dashboard_metrics_heading">Overview</string>
+    <string name="dashboard_metric_storage">Storage</string>
+    <string name="dashboard_metric_tunnel">Tunnel</string>
+    <string name="dashboard_metric_channel">Channel</string>
+    <string name="dashboard_metric_reach">Reach</string>
+    <string name="dashboard_reach_local">Local</string>
+    <string name="dashboard_reach_lan">LAN</string>
+    <string name="dashboard_reach_internet">Internet</string>
+    <string name="dashboard_value_off">Off</string>
+    <string name="dashboard_value_on">On</string>
+    <string name="dashboard_attention_heading">Needs attention</string>
+
     <!-- Server Status -->
     <string name="services_status_title">Services Status</string>
+    <string name="channel_status_idle">Idle</string>
+    <string name="channel_status_active">Active</string>
     <string name="mcp_tools_restart_hint">Changes take effect on server restart</string>
     <string name="tool_call_indicator_text">MCP controlling · %1$s</string>
     <string name="server_status_title">Server Status</string>

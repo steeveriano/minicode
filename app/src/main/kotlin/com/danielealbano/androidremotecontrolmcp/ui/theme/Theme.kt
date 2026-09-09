@@ -9,10 +9,16 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 
+/**
+ * @param dynamicColor Opt-in, and off by default. Material You derives a scheme from the user's
+ *   wallpaper, which gave the app no identity of its own: the same screen was a different colour on
+ *   every device, and the accent rarely matched the launcher icon. The fixed scheme in `Color.kt` is
+ *   the design; this parameter exists so a caller can still ask for the system's.
+ */
 @Composable
 fun AndroidRemoteControlMcpTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val colorScheme =
