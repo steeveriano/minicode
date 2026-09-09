@@ -76,6 +76,34 @@ Ninguna credencial vive en la base ni en el bundle.
 > devuelve «upserted» y **no guarda nada**. Hay que usar `all`. Verificá siempre con
 > `getAllEnvVars` después de escribir; el silencio no es confirmación.
 
+### Modo LAN — el panel corriendo en tu máquina
+
+El sitio desplegado **nunca** va a alcanzar al teléfono por la red local, y no es cuestión de
+configurarlo. Se sirve por HTTPS, y un navegador corta un pedido a `http://192.168.x.x` por dos
+razones distintas: contenido mixto, y Private Network Access, que impide que una página de origen
+público toque una IP privada. No hay bandera que apagar.
+
+Lo que sí funciona es correr el panel y sus funciones localmente:
+
+```sh
+npx netlify-cli dev        # desde la raíz del repositorio
+```
+
+La página queda en `http://localhost:8888` sin HTTPS, y la función corre en tu máquina — así que
+alcanza al teléfono por la red local, a velocidad de wifi y sin gastar el gigabyte mensual del
+túnel. **El token no se mueve al navegador**: lo sigue leyendo la función.
+
+Hace falta un `.env` (ignorado por git) con `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`,
+`DEVICE_<SLUG>_URL` apuntando a la IP local del teléfono, y `DEVICE_<SLUG>_TOKEN`. Ver
+`.env.example`.
+
+En el teléfono hay que poner la dirección de escucha en **red** en vez de **localhost**, o el
+servidor solo existe para el túnel.
+
+`deviceFor` acepta `http://` **únicamente** para direcciones privadas — 10.x, 172.16–31.x,
+192.168.x, 127.x, `.local`. Un `http://` a un host público se rechaza: eso pondría el token del
+dispositivo en claro sobre internet, que es exactamente lo que el resto de este diseño evita.
+
 ### El visor histórico sigue
 
 La vista de instantáneas consulta Supabase y funciona con el celular apagado. Las dos conviven: en

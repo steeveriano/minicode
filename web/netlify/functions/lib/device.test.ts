@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { ALLOWED_TOOLS, bearerFrom, deviceFor, rejectionReason, toolsFor } from './device.mts';
+import { ALLOWED_TOOLS, bearerFrom, deviceFor, isPrivateHost, rejectionReason, toolsFor } from './device.mts';
 
 const ENV_KEYS = ['DEVICE_CELULAR_URL', 'DEVICE_CELULAR_TOKEN', 'DEVICE_MI_PC_URL', 'DEVICE_MI_PC_TOKEN'];
 
@@ -102,8 +102,27 @@ describe('deviceFor', () => {
     expect(deviceFor('celular')?.url).toBe('https://example.ngrok-free.dev');
   });
 
-  it('refuses a non-https endpoint', () => {
+  it('refuses plain http to a public host', () => {
+    // A device token in the clear across the open internet. The one case this must never allow.
     process.env.DEVICE_CELULAR_URL = 'http://example.ngrok-free.dev';
+    process.env.DEVICE_CELULAR_TOKEN = 'token';
+    expect(deviceFor('celular')).toBeNull();
+  });
+
+  it('admits plain http to a private address, which is what LAN mode needs', () => {
+    process.env.DEVICE_CELULAR_URL = 'http://192.168.110.158:8080';
+    process.env.DEVICE_CELULAR_TOKEN = 'token';
+    expect(deviceFor('celular')?.url).toBe('http://192.168.110.158:8080');
+  });
+
+  it('refuses a scheme that is neither http nor https', () => {
+    process.env.DEVICE_CELULAR_URL = 'file:///etc/passwd';
+    process.env.DEVICE_CELULAR_TOKEN = 'token';
+    expect(deviceFor('celular')).toBeNull();
+  });
+
+  it('refuses a url it cannot parse', () => {
+    process.env.DEVICE_CELULAR_URL = 'not a url';
     process.env.DEVICE_CELULAR_TOKEN = 'token';
     expect(deviceFor('celular')).toBeNull();
   });
@@ -189,5 +208,40 @@ describe('rejectionReason at each level', () => {
     const batch = [call('android_list_files'), call('android_delete_file')];
     expect(rejectionReason(batch, 'write')).toContain('android_delete_file');
     expect(rejectionReason(batch, 'full')).toBeNull();
+  });
+});
+
+describe('isPrivateHost', () => {
+  it('accepts the three RFC 1918 ranges', () => {
+    expect(isPrivateHost('10.0.0.1')).toBe(true);
+    expect(isPrivateHost('192.168.110.158')).toBe(true);
+    expect(isPrivateHost('172.16.0.1')).toBe(true);
+    expect(isPrivateHost('172.31.255.254')).toBe(true);
+  });
+
+  it('rejects the addresses just outside 172.16.0.0/12', () => {
+    // The range everyone gets wrong: 172.15 and 172.32 are public.
+    expect(isPrivateHost('172.15.0.1')).toBe(false);
+    expect(isPrivateHost('172.32.0.1')).toBe(false);
+  });
+
+  it('accepts loopback and link-local', () => {
+    expect(isPrivateHost('127.0.0.1')).toBe(true);
+    expect(isPrivateHost('localhost')).toBe(true);
+    expect(isPrivateHost('::1')).toBe(true);
+    expect(isPrivateHost('169.254.1.1')).toBe(true);
+    expect(isPrivateHost('phone.local')).toBe(true);
+  });
+
+  it('rejects public addresses and anything not an address', () => {
+    expect(isPrivateHost('8.8.8.8')).toBe(false);
+    expect(isPrivateHost('example.com')).toBe(false);
+    expect(isPrivateHost('192.168.1')).toBe(false);
+    expect(isPrivateHost('999.1.1.1')).toBe(false);
+  });
+
+  it('is not fooled by a hostname that merely contains a private address', () => {
+    // `192.168.1.1.evil.com` resolves wherever the attacker wants.
+    expect(isPrivateHost('192.168.1.1.evil.com')).toBe(false);
   });
 });

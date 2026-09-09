@@ -119,18 +119,63 @@ export async function gateFor(accessToken: string, slug: string): Promise<Access
 export type Device = { slug: string; url: string; token: string };
 
 /**
+ * True for an address that cannot leave the local network.
+ *
+ * This is the whole basis for admitting `http://` at all: a plaintext request to 192.168.x.x never
+ * crosses a router, so there is no wire to tap that the attacker is not already sitting on. The
+ * same request to a public host would put a device token on the open internet in the clear.
+ */
+export function isPrivateHost(host: string): boolean {
+  const name = host.toLowerCase().replace(/^\[|\]$/g, '');
+  if (name === 'localhost' || name.endsWith('.local') || name.endsWith('.localhost')) return true;
+  if (name === '::1') return true;
+
+  const octets = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(name);
+  if (!octets) return false;
+  const parts = octets.slice(1, 5).map(Number);
+  if (parts.some((n) => Number.isNaN(n) || n > 255)) return false;
+  const [a = -1, b = -1] = parts;
+
+  if (a === 127) return true; // loopback
+  if (a === 10) return true; // 10.0.0.0/8
+  if (a === 192 && b === 168) return true; // 192.168.0.0/16
+  if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12
+  if (a === 169 && b === 254) return true; // link-local
+  return false;
+}
+
+/**
  * Resolves a device slug to its endpoint. Both values come from the environment, keyed by slug, so
  * adding a device is two environment variables and a row — never a code change, and never a
  * credential in the database or the bundle.
+ *
+ * `https://` is required for anything reachable from outside. Plain `http://` is admitted only for a
+ * private address, which is what makes "LAN mode" possible: run this function locally and it can
+ * talk to the phone across the room at full speed, with the token still on the server side of the
+ * boundary rather than in the page.
  */
 export function deviceFor(slug: string): Device | null {
   if (!/^[a-z0-9][a-z0-9-]{1,31}$/.test(slug)) return null;
   const key = slug.toUpperCase().replace(/-/g, '_');
-  const url = process.env[`DEVICE_${key}_URL`];
+  const raw = process.env[`DEVICE_${key}_URL`];
   const token = process.env[`DEVICE_${key}_TOKEN`];
-  if (!url || !token) return null;
-  if (!url.startsWith('https://')) return null;
-  return { slug, url: url.replace(/\/+$/, ''), token };
+  if (!raw || !token) return null;
+
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    return null;
+  }
+  if (parsed.protocol === 'https:') return { slug, url: trimSlash(raw), token };
+  if (parsed.protocol === 'http:' && isPrivateHost(parsed.hostname)) {
+    return { slug, url: trimSlash(raw), token };
+  }
+  return null;
+}
+
+function trimSlash(url: string): string {
+  return url.replace(/\/+$/, '');
 }
 
 /**
