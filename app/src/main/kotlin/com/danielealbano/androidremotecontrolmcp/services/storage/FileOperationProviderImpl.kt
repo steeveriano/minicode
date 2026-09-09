@@ -4,13 +4,20 @@ package com.danielealbano.androidremotecontrolmcp.services.storage
 
 import android.content.Context
 import android.net.Uri
+import android.provider.DocumentsContract
 import android.util.Log
 import androidx.documentfile.provider.DocumentFile
 import com.danielealbano.androidremotecontrolmcp.data.model.BuiltinStorageLocation
+import com.danielealbano.androidremotecontrolmcp.data.model.DiskUsageNode
+import com.danielealbano.androidremotecontrolmcp.data.model.DiskUsageResult
 import com.danielealbano.androidremotecontrolmcp.data.model.FileInfo
 import com.danielealbano.androidremotecontrolmcp.data.repository.SettingsRepository
 import com.danielealbano.androidremotecontrolmcp.mcp.McpToolException
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.withContext
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
@@ -465,8 +472,408 @@ class FileOperationProviderImpl
         }
 
         // ─────────────────────────────────────────────────────────────────────
+        // moveFile
+        // ─────────────────────────────────────────────────────────────────────
+
+        @Suppress("CyclomaticComplexMethod", "LongMethod", "ThrowsCount")
+        override suspend fun moveFile(
+            locationId: String,
+            sourcePath: String,
+            destinationPath: String,
+            overwrite: Boolean,
+            allowCopyFallback: Boolean,
+        ): FileMoveResult =
+            withContext(Dispatchers.IO) {
+                if (BuiltinStorageLocation.isBuiltinId(locationId)) {
+                    return@withContext mediaStoreFileOperations.moveFile(
+                        locationId,
+                        sourcePath,
+                        destinationPath,
+                        overwrite,
+                        allowCopyFallback,
+                    )
+                }
+                BuiltinStorageLocation.validatePath(sourcePath)
+                BuiltinStorageLocation.validatePath(destinationPath)
+                checkAuthorization(locationId)
+                checkWritePermission(locationId)
+                // The file leaves the path it occupied, which is a deletion from that path.
+                checkDeletePermission(locationId)
+
+                val source = resolveRegularFileOrThrow(locationId, sourcePath)
+                val sizeBytes = source.length()
+                val sourceParent =
+                    source.parentFile
+                        ?: throw McpToolException.ActionFailed(
+                            "Cannot resolve the parent directory of $sourcePath",
+                        )
+
+                val destinationParentPath = destinationPath.substringBeforeLast('/', "")
+                val destinationName = destinationPath.substringAfterLast('/')
+                if (destinationName.isEmpty()) {
+                    throw McpToolException.InvalidParams("Destination path must name a file")
+                }
+                val destinationParent = ensureDirectory(locationId, destinationParentPath)
+
+                destinationParent.findFile(destinationName)?.let { existing ->
+                    // A directory is never removed to make room. DocumentFile.delete() on a
+                    // directory takes its whole subtree with it, so honouring `overwrite` here
+                    // would turn one mistaken argument into unbounded data loss.
+                    if (existing.isDirectory) {
+                        throw McpToolException.InvalidParams(
+                            "Destination is a directory: $destinationPath",
+                        )
+                    }
+                    if (!overwrite) {
+                        throw McpToolException.InvalidParams(
+                            "Destination already exists: $destinationPath",
+                        )
+                    }
+                    if (!existing.delete()) {
+                        throw McpToolException.ActionFailed(
+                            "Could not replace the existing destination: $destinationPath",
+                        )
+                    }
+                }
+
+                val sameParent = sourceParent.uri == destinationParent.uri
+                val sameName = source.name == destinationName
+                val canMove = source.hasDocumentFlag(DocumentsContract.Document.FLAG_SUPPORTS_MOVE)
+                val canRename = source.hasDocumentFlag(DocumentsContract.Document.FLAG_SUPPORTS_RENAME)
+
+                // moveDocument preserves the display name, so a move that also changes the name
+                // needs a rename afterwards. Skipping that would silently leave the file under
+                // its old name while the caller records the new one.
+                val movedUri: Uri =
+                    when {
+                        sameParent && sameName -> {
+                            source.uri
+                        }
+
+                        sameParent && canRename -> {
+                            renameOrThrow(source.uri, destinationName)
+                        }
+
+                        !sameParent && canMove && sameName -> {
+                            moveOrThrow(source.uri, sourceParent.uri, destinationParent.uri)
+                        }
+
+                        !sameParent && canMove && canRename -> {
+                            renameOrThrow(
+                                moveOrThrow(source.uri, sourceParent.uri, destinationParent.uri),
+                                destinationName,
+                            )
+                        }
+
+                        !allowCopyFallback -> {
+                            throw McpToolException.InvalidParams(
+                                "The storage provider supports neither move nor rename for this " +
+                                    "file. Copying instead would need $sizeBytes bytes of free " +
+                                    "space; pass allow_copy_fallback to accept that cost.",
+                            )
+                        }
+
+                        else -> {
+                            copyThenDeleteSource(source, destinationParent, destinationName)
+                        }
+                    }
+
+                val mechanism =
+                    when {
+                        sameParent -> MoveMechanism.RENAME_DOCUMENT
+                        canMove && sameName -> MoveMechanism.MOVE_DOCUMENT
+                        canMove -> MoveMechanism.MOVE_THEN_RENAME
+                        else -> MoveMechanism.COPY_DELETE
+                    }
+
+                // The provider may have assigned a different display name; report where the
+                // file actually is, not where it was asked to go.
+                val actualName = DocumentFile.fromSingleUri(context, movedUri)?.name ?: destinationName
+                val actualPath =
+                    if (destinationParentPath.isEmpty()) actualName else "$destinationParentPath/$actualName"
+
+                FileMoveResult(actualPath, sizeBytes, mechanism)
+            }
+
+        // ─────────────────────────────────────────────────────────────────────
+        // createDirectory / statPath / deleteDirectory
+        // ─────────────────────────────────────────────────────────────────────
+
+        override suspend fun createDirectory(
+            locationId: String,
+            path: String,
+        ): Boolean =
+            withContext(Dispatchers.IO) {
+                if (BuiltinStorageLocation.isBuiltinId(locationId)) {
+                    return@withContext mediaStoreFileOperations.createDirectory(locationId, path)
+                }
+                BuiltinStorageLocation.validatePath(path)
+                checkAuthorization(locationId)
+                checkWritePermission(locationId)
+                val existed = resolveDocumentFile(locationId, path)?.isDirectory == true
+                ensureDirectory(locationId, path)
+                !existed
+            }
+
+        override suspend fun statPath(
+            locationId: String,
+            path: String,
+        ): PathKind? =
+            withContext(Dispatchers.IO) {
+                if (BuiltinStorageLocation.isBuiltinId(locationId)) {
+                    return@withContext mediaStoreFileOperations.statPath(locationId, path)
+                }
+                BuiltinStorageLocation.validatePath(path)
+                checkAuthorization(locationId)
+                resolveDocumentFile(locationId, path)?.let {
+                    if (it.isDirectory) PathKind.DIRECTORY else PathKind.FILE
+                }
+            }
+
+        override suspend fun deleteDirectory(
+            locationId: String,
+            path: String,
+        ): Int =
+            withContext(Dispatchers.IO) {
+                if (BuiltinStorageLocation.isBuiltinId(locationId)) {
+                    return@withContext mediaStoreFileOperations.deleteDirectory(locationId, path)
+                }
+                BuiltinStorageLocation.validatePath(path)
+                checkAuthorization(locationId)
+                checkDeletePermission(locationId)
+
+                val root =
+                    resolveDocumentFile(locationId, path)
+                        ?: throw McpToolException.ActionFailed("Directory not found: $path")
+                if (!root.isDirectory) {
+                    throw McpToolException.InvalidParams("Not a directory: $path")
+                }
+
+                // Collect the whole subtree before deleting anything. Deleting as we walk
+                // would, on reaching the node budget, leave a half-deleted tree behind a
+                // success-looking count — the failure this design exists to avoid.
+                val directories = mutableListOf<DocumentFile>()
+                val files = mutableListOf<DocumentFile>()
+                val stack = ArrayDeque<DocumentFile>().apply { addLast(root) }
+                while (stack.isNotEmpty()) {
+                    currentCoroutineContext().ensureActive()
+                    val dir = stack.removeLast()
+                    directories += dir
+                    if (directories.size > FileOperationProvider.MAX_USAGE_NODES) {
+                        throw McpToolException.ActionFailed(
+                            "Directory tree exceeds ${FileOperationProvider.MAX_USAGE_NODES} " +
+                                "directories; nothing was deleted. Delete a smaller subtree.",
+                        )
+                    }
+                    for (child in dir.listFiles()) {
+                        if (child.isDirectory) stack.addLast(child) else files += child
+                    }
+                }
+
+                var deleted = 0
+                for (file in files) {
+                    if (file.delete()) deleted++
+                }
+                // Children before parents.
+                for (dir in directories.asReversed()) {
+                    dir.delete()
+                }
+                deleted
+            }
+
+        // ─────────────────────────────────────────────────────────────────────
+        // diskUsage
+        // ─────────────────────────────────────────────────────────────────────
+
+        override suspend fun diskUsage(
+            locationId: String,
+            path: String,
+            maxDepth: Int,
+        ): DiskUsageResult =
+            withContext(Dispatchers.IO) {
+                if (BuiltinStorageLocation.isBuiltinId(locationId)) {
+                    return@withContext mediaStoreFileOperations.diskUsage(locationId, path, maxDepth)
+                }
+                if (path.isNotEmpty()) BuiltinStorageLocation.validatePath(path)
+                checkAuthorization(locationId)
+
+                val root =
+                    resolveDocumentFile(locationId, path)
+                        ?: throw McpToolException.ActionFailed("Directory not found: $path")
+                if (!root.isDirectory) {
+                    throw McpToolException.InvalidParams("Not a directory: $path")
+                }
+
+                val budget = UsageBudget()
+                val node = walkUsage(root, path, 0, maxDepth, budget)
+                DiskUsageResult(node, budget.exhausted, complete = true)
+            }
+
+        /** Mutable traversal state; a plain counter would need to be threaded through returns. */
+        private class UsageBudget {
+            var visited = 0
+            var exhausted = false
+        }
+
+        /**
+         * Aggregates [dir] recursively.
+         *
+         * Enumerates with [DocumentFile.listFiles] rather than this provider's own `listFiles`,
+         * which caps at [FileOperationProvider.MAX_LIST_ENTRIES] and would silently under-count
+         * a large media directory.
+         */
+        private suspend fun walkUsage(
+            dir: DocumentFile,
+            relativePath: String,
+            depth: Int,
+            maxDepth: Int,
+            budget: UsageBudget,
+        ): DiskUsageNode {
+            currentCoroutineContext().ensureActive()
+            budget.visited++
+            if (budget.visited > FileOperationProvider.MAX_USAGE_NODES) {
+                budget.exhausted = true
+                return DiskUsageNode(relativePath, 0L, 0, emptyList())
+            }
+            var totalBytes = 0L
+            var fileCount = 0
+            val children = mutableListOf<DiskUsageNode>()
+            for (child in dir.listFiles()) {
+                if (child.isDirectory) {
+                    val childName = child.name.orEmpty()
+                    val childPath = if (relativePath.isEmpty()) childName else "$relativePath/$childName"
+                    val node = walkUsage(child, childPath, depth + 1, maxDepth, budget)
+                    // Totals always cover the whole subtree; maxDepth limits only the breakdown.
+                    totalBytes += node.totalBytes
+                    fileCount += node.fileCount
+                    if (depth < maxDepth) children += node
+                } else {
+                    totalBytes += child.length()
+                    fileCount++
+                }
+            }
+            return DiskUsageNode(relativePath, totalBytes, fileCount, children)
+        }
+
+        // ─────────────────────────────────────────────────────────────────────
         // Private helpers
         // ─────────────────────────────────────────────────────────────────────
+
+        /** Reads [DocumentsContract.Document.COLUMN_FLAGS]; DocumentFile does not expose it. */
+        private fun DocumentFile.hasDocumentFlag(flag: Int): Boolean =
+            context.contentResolver
+                .query(uri, arrayOf(DocumentsContract.Document.COLUMN_FLAGS), null, null, null)
+                ?.use { cursor -> if (cursor.moveToFirst()) cursor.getInt(0) and flag != 0 else false }
+                ?: false
+
+        private fun moveOrThrow(
+            sourceUri: Uri,
+            fromParent: Uri,
+            toParent: Uri,
+        ): Uri =
+            DocumentsContract.moveDocument(context.contentResolver, sourceUri, fromParent, toParent)
+                ?: throw McpToolException.ActionFailed("Move rejected by the storage provider")
+
+        private fun renameOrThrow(
+            sourceUri: Uri,
+            newName: String,
+        ): Uri =
+            DocumentsContract.renameDocument(context.contentResolver, sourceUri, newName)
+                ?: throw McpToolException.ActionFailed("Rename rejected by the storage provider")
+
+        /**
+         * Streams [source] into a new document and deletes the source only once the copy is
+         * complete and its length verified.
+         *
+         * The order matters: on a device holding the only copy of a file, an interruption must
+         * leave the original readable. A partial destination is removed before rethrowing.
+         */
+        private suspend fun copyThenDeleteSource(
+            source: DocumentFile,
+            destinationParent: DocumentFile,
+            destinationName: String,
+        ): Uri {
+            // Only this path reads the bytes, so only this path is bound by the size limit.
+            checkFileSize(source)
+            val expected = source.length()
+            val mimeType = source.type ?: MimeTypeUtils.guessMimeType(destinationName)
+            val destination =
+                destinationParent.createFile(mimeType, destinationName)
+                    ?: throw McpToolException.ActionFailed(
+                        "Failed to create the destination file '$destinationName'",
+                    )
+            try {
+                context.contentResolver.openInputStream(source.uri).use { input ->
+                    context.contentResolver.openOutputStream(destination.uri).use { output ->
+                        if (input == null || output == null) {
+                            throw McpToolException.ActionFailed("Could not open the file streams")
+                        }
+                        input.copyTo(output)
+                    }
+                }
+                val written = destination.length()
+                if (written != expected) {
+                    throw McpToolException.ActionFailed(
+                        "Copy is incomplete: expected $expected bytes, wrote $written",
+                    )
+                }
+            } catch (e: Exception) {
+                destination.delete()
+                throw e
+            }
+            if (!source.delete()) {
+                destination.delete()
+                throw McpToolException.ActionFailed(
+                    "Copied the file but could not remove the source; nothing was changed",
+                )
+            }
+            return destination.uri
+        }
+
+        /**
+         * Resolves [path] to a directory, creating it and any missing parents.
+         *
+         * [ensureParentDirectoriesAndCreateFile] creates a *file* at the leaf, so it cannot
+         * serve a caller that needs the directory itself.
+         */
+        private suspend fun ensureDirectory(
+            locationId: String,
+            path: String,
+        ): DocumentFile {
+            val treeUri =
+                storageLocationProvider.getTreeUriForLocation(locationId)
+                    ?: throw McpToolException.ActionFailed(
+                        "Could not retrieve tree URI for location '$locationId'",
+                    )
+            var current =
+                DocumentFile.fromTreeUri(context, treeUri)
+                    ?: throw McpToolException.ActionFailed(
+                        "Could not create DocumentFile from tree URI for location '$locationId'",
+                    )
+            for (segment in path.split("/").filter { it.isNotEmpty() }) {
+                val existing = current.findFile(segment)
+                current =
+                    when {
+                        existing != null && existing.isDirectory -> {
+                            existing
+                        }
+
+                        existing != null -> {
+                            throw McpToolException.ActionFailed(
+                                "Path component '$segment' is a file, not a directory",
+                            )
+                        }
+
+                        else -> {
+                            current.createDirectory(segment)
+                                ?: throw McpToolException.ActionFailed(
+                                    "Failed to create directory '$segment'",
+                                )
+                        }
+                    }
+            }
+            return current
+        }
 
         /**
          * Checks that the given location is authorized.

@@ -8,6 +8,8 @@ import android.net.Uri
 import android.provider.MediaStore
 import android.util.Log
 import com.danielealbano.androidremotecontrolmcp.data.model.BuiltinStorageLocation
+import com.danielealbano.androidremotecontrolmcp.data.model.DiskUsageNode
+import com.danielealbano.androidremotecontrolmcp.data.model.DiskUsageResult
 import com.danielealbano.androidremotecontrolmcp.data.model.FileInfo
 import com.danielealbano.androidremotecontrolmcp.data.model.MediaCollection
 import com.danielealbano.androidremotecontrolmcp.data.repository.SettingsRepository
@@ -705,6 +707,181 @@ class MediaStoreFileOperationsImpl
                 startIndex = index + needle.length
             }
             return count
+        }
+
+        // ─── move / directory operations ────────────────────────────────────
+
+        override suspend fun moveFile(
+            locationId: String,
+            sourcePath: String,
+            destinationPath: String,
+            overwrite: Boolean,
+            allowCopyFallback: Boolean,
+        ): FileMoveResult = throw unsupportedForBuiltin("move files within")
+
+        override suspend fun createDirectory(
+            locationId: String,
+            path: String,
+        ): Boolean = throw unsupportedForBuiltin("create directories in")
+
+        override suspend fun deleteDirectory(
+            locationId: String,
+            path: String,
+        ): Int = throw unsupportedForBuiltin("delete directories in")
+
+        /**
+         * MediaStore has no directory entities — a directory exists only as a prefix shared by
+         * indexed files — so relocating and removing them are not operations this backend can
+         * offer. A user who needs them adds the folder as a storage location instead.
+         */
+        private fun unsupportedForBuiltin(operation: String) =
+            McpToolException.InvalidParams(
+                "Cannot $operation a built-in location. Add the folder as a storage location " +
+                    "in the app settings and use that location id instead.",
+            )
+
+        override suspend fun statPath(
+            locationId: String,
+            path: String,
+        ): PathKind? =
+            withContext(Dispatchers.IO) {
+                val builtin = resolveBuiltin(locationId)
+                BuiltinStorageLocation.validatePath(path)
+                if (path.isEmpty()) return@withContext PathKind.DIRECTORY
+
+                val relativePath = buildRelativePathForListing(builtin, "")
+                val projection = arrayOf(MediaStore.MediaColumns.RELATIVE_PATH, MediaStore.MediaColumns.DISPLAY_NAME)
+                // A directory is a prefix of some indexed file's relative path; a file is an
+                // exact relative-path plus display-name match.
+                val directoryPrefix = "$path/"
+                var kind: PathKind? = null
+
+                for (collection in builtin.collections) {
+                    if (kind == PathKind.FILE) break
+                    val includeNonOwned = hasNonOwnedReadAccess(collection)
+                    context.contentResolver
+                        .query(
+                            collection.uri,
+                            projection,
+                            buildListSelection(includeNonOwned),
+                            buildListSelectionArgs(relativePath, includeNonOwned),
+                            null,
+                        )?.use { cursor ->
+                            val relIdx = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.RELATIVE_PATH)
+                            val nameIdx = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DISPLAY_NAME)
+                            while (cursor.moveToNext()) {
+                                val entryPath = entryRelativePath(cursor, relIdx, nameIdx, relativePath)
+                                if (entryPath == path) {
+                                    kind = PathKind.FILE
+                                    break
+                                }
+                                if (entryPath.startsWith(directoryPrefix)) {
+                                    kind = PathKind.DIRECTORY
+                                }
+                            }
+                        }
+                }
+                kind
+            }
+
+        // ─── diskUsage ──────────────────────────────────────────────────────
+
+        override suspend fun diskUsage(
+            locationId: String,
+            path: String,
+            maxDepth: Int,
+        ): DiskUsageResult =
+            withContext(Dispatchers.IO) {
+                val builtin = resolveBuiltin(locationId)
+                BuiltinStorageLocation.validatePath(path)
+
+                val relativePath = buildRelativePathForListing(builtin, path)
+                val projection =
+                    arrayOf(MediaStore.MediaColumns.RELATIVE_PATH, MediaStore.MediaColumns.DISPLAY_NAME, MediaStore.MediaColumns.SIZE)
+                // Totals accumulate per directory. ContentResolver.query does not honour SQL
+                // GROUP BY — the sortOrder injection trick is rejected from Android 11 on and
+                // minSdk here is 33 — so the aggregation is client-side, one query per
+                // collection rather than one query overall.
+                val bytesByDir = mutableMapOf<String, Long>()
+                val countByDir = mutableMapOf<String, Int>()
+                var complete = true
+
+                for (collection in builtin.collections) {
+                    val includeNonOwned = hasNonOwnedReadAccess(collection)
+                    // Without non-owned read access the query sees only files this app wrote,
+                    // so the totals are a floor, not the figure. The caller must be told.
+                    if (!includeNonOwned) complete = false
+                    context.contentResolver
+                        .query(
+                            collection.uri,
+                            projection,
+                            buildListSelection(includeNonOwned),
+                            buildListSelectionArgs(relativePath, includeNonOwned),
+                            null,
+                        )?.use { cursor ->
+                            val relIdx = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.RELATIVE_PATH)
+                            val nameIdx = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DISPLAY_NAME)
+                            val sizeIdx = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.SIZE)
+                            while (cursor.moveToNext()) {
+                                val entryPath = entryRelativePath(cursor, relIdx, nameIdx, buildRelativePathForListing(builtin, ""))
+                                val size = cursor.getLong(sizeIdx)
+                                // Credit the file to its own directory and to every ancestor,
+                                // so a shallow breakdown still reports complete totals.
+                                var dir = entryPath.substringBeforeLast('/', "")
+                                while (true) {
+                                    bytesByDir[dir] = (bytesByDir[dir] ?: 0L) + size
+                                    countByDir[dir] = (countByDir[dir] ?: 0) + 1
+                                    if (dir.isEmpty() || dir == path) break
+                                    dir = dir.substringBeforeLast('/', "")
+                                }
+                            }
+                        }
+                }
+
+                DiskUsageResult(
+                    root = buildUsageNode(path, bytesByDir, countByDir, maxDepth, 0),
+                    truncated = false,
+                    complete = complete,
+                )
+            }
+
+        /** Assembles the node for [dir] and, while within [maxDepth], its immediate children. */
+        private fun buildUsageNode(
+            dir: String,
+            bytesByDir: Map<String, Long>,
+            countByDir: Map<String, Int>,
+            maxDepth: Int,
+            depth: Int,
+        ): DiskUsageNode {
+            val prefix = if (dir.isEmpty()) "" else "$dir/"
+            val children =
+                if (depth >= maxDepth) {
+                    emptyList()
+                } else {
+                    bytesByDir.keys
+                        .filter { it.startsWith(prefix) && it != dir && !it.removePrefix(prefix).contains('/') }
+                        .sorted()
+                        .map { buildUsageNode(it, bytesByDir, countByDir, maxDepth, depth + 1) }
+                }
+            return DiskUsageNode(
+                path = dir,
+                totalBytes = bytesByDir[dir] ?: 0L,
+                fileCount = countByDir[dir] ?: 0,
+                children = children,
+            )
+        }
+
+        /** The location-relative path of a cursor row, derived from its MediaStore columns. */
+        private fun entryRelativePath(
+            cursor: android.database.Cursor,
+            relPathIdx: Int,
+            nameIdx: Int,
+            locationRelativePath: String,
+        ): String {
+            val rowRelative = cursor.getString(relPathIdx).orEmpty()
+            val name = cursor.getString(nameIdx).orEmpty()
+            val withinLocation = rowRelative.removePrefix(locationRelativePath).trim('/')
+            return if (withinLocation.isEmpty()) name else "$withinLocation/$name"
         }
 
         companion object {
