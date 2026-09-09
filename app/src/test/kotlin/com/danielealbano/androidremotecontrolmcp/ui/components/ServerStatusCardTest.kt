@@ -11,24 +11,22 @@ class ServerStatusCardTest {
     private val running = ServerStatus.Running(port = 8080, bindingAddress = "127.0.0.1")
 
     @Test
-    fun `mcp start enabled only when stopped and startEnabled`() {
-        assertTrue(mcpStartStopButtonEnabled(ServerStatus.Stopped, startEnabled = true))
-        assertFalse(mcpStartStopButtonEnabled(ServerStatus.Stopped, startEnabled = false))
+    fun `mcp start enabled when stopped, without any permission`() {
+        // The accessibility service is not a prerequisite for running the server: only the
+        // accessibility tools need it, and on a sideloaded install it can be unreachable.
+        assertTrue(mcpStartStopButtonEnabled(ServerStatus.Stopped))
     }
 
     @Test
     fun `mcp stop always enabled when running`() {
-        assertTrue(mcpStartStopButtonEnabled(running, startEnabled = false))
-        assertTrue(mcpStartStopButtonEnabled(running, startEnabled = true))
+        assertTrue(mcpStartStopButtonEnabled(running))
     }
 
     @Test
     fun `mcp disabled while starting or stopping or error`() {
-        assertFalse(mcpStartStopButtonEnabled(ServerStatus.Starting, startEnabled = true))
-        assertFalse(mcpStartStopButtonEnabled(ServerStatus.Starting, startEnabled = false))
-        assertFalse(mcpStartStopButtonEnabled(ServerStatus.Stopping, startEnabled = true))
-        assertFalse(mcpStartStopButtonEnabled(ServerStatus.Stopping, startEnabled = false))
-        assertFalse(mcpStartStopButtonEnabled(ServerStatus.Error("boom"), startEnabled = true))
+        assertFalse(mcpStartStopButtonEnabled(ServerStatus.Starting))
+        assertFalse(mcpStartStopButtonEnabled(ServerStatus.Stopping))
+        assertFalse(mcpStartStopButtonEnabled(ServerStatus.Error("boom")))
     }
 
     @Test

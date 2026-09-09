@@ -68,7 +68,7 @@ fun ServerStatusCard(
                 statusText = serverStatusToText(serverStatus),
                 statusColor = serverStatusToColor(serverStatus, isSystemInDarkTheme()),
                 buttonText = if (serverStatus is ServerStatus.Running) "Stop" else "Start",
-                buttonEnabled = mcpStartStopButtonEnabled(serverStatus, startEnabled),
+                buttonEnabled = mcpStartStopButtonEnabled(serverStatus),
                 onButtonClick = if (serverStatus is ServerStatus.Running) onMcpStopClick else onMcpStartClick,
             )
 
@@ -88,16 +88,19 @@ fun ServerStatusCard(
 }
 
 /**
- * Whether the MCP Server start/stop button is enabled. Stop (Running) is always enabled;
- * Start (Stopped) requires [startEnabled] (accessibility granted); transient states are disabled.
+ * Whether the MCP Server start/stop button is enabled. Only transient states disable it.
+ *
+ * Starting the server no longer requires the accessibility service. That permission is needed by
+ * the accessibility tools alone, each of which already fails with a clear error when it is
+ * missing; gating the whole server on it also blocked the file, storage, app-management and
+ * notification tools, which do not use it. On a sideloaded install Android additionally places
+ * the permission behind "restricted settings", which some devices make hard or impossible to
+ * reach — so the gate could lock a user out of the server entirely.
  */
-internal fun mcpStartStopButtonEnabled(
-    status: ServerStatus,
-    startEnabled: Boolean,
-): Boolean =
+internal fun mcpStartStopButtonEnabled(status: ServerStatus): Boolean =
     when (status) {
         is ServerStatus.Running -> true
-        is ServerStatus.Stopped -> startEnabled
+        is ServerStatus.Stopped -> true
         else -> false
     }
 
