@@ -4,7 +4,9 @@ package com.danielealbano.androidremotecontrolmcp.services.storage
 
 import android.content.ContentResolver
 import android.content.Context
+import android.database.Cursor
 import android.net.Uri
+import android.provider.DocumentsContract
 import android.util.Log
 import androidx.documentfile.provider.DocumentFile
 import com.danielealbano.androidremotecontrolmcp.data.model.ServerConfig
@@ -71,6 +73,8 @@ class FileOperationProviderTest {
         every { android.util.Log.e(any(), any(), any()) } returns 0
 
         mockkStatic(DocumentFile::class)
+        mockkStatic(DocumentsContract::class)
+        stubbedDirectories.clear()
 
         every { mockContext.contentResolver } returns mockContentResolver
 
@@ -87,6 +91,7 @@ class FileOperationProviderTest {
     fun tearDown() {
         unmockkStatic(android.util.Log::class)
         unmockkStatic(DocumentFile::class)
+        unmockkStatic(DocumentsContract::class)
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────────
@@ -117,6 +122,105 @@ class FileOperationProviderTest {
         every { DocumentFile.fromTreeUri(mockContext, mockTreeUri) } returns rootDoc
     }
 
+    /** One row of a stubbed directory enumeration. */
+    private data class TestChild(
+        val name: String,
+        val isDirectory: Boolean = false,
+        val size: Long = 0L,
+        val lastModified: Long = 0L,
+        val mimeType: String? = null,
+        /** Only needed when the code under test resolves this child into a [DocumentFile]. */
+        val document: DocumentFile? = null,
+    )
+
+    private class StubbedDirectory(
+        val uri: Uri,
+        val documentId: String,
+        val children: MutableList<TestChild> = mutableListOf(),
+    )
+
+    private val stubbedDirectories = mutableMapOf<DocumentFile, StubbedDirectory>()
+    private var nextDocumentId = 0
+
+    /**
+     * Makes [parent] enumerate to [children] the way the provider actually reads a directory: one
+     * ContentResolver query over the children URI, with every attribute taken from that cursor.
+     *
+     * Stubbing `DocumentFile.listFiles()` or `findFile()` would no longer describe the provider's
+     * behaviour — it stopped using them because each of their accessors is a separate query.
+     *
+     * Additive: calling it again for the same parent appends to that directory.
+     */
+    private fun stubChildren(
+        parent: DocumentFile,
+        children: List<TestChild> = emptyList(),
+    ) {
+        val directory =
+            stubbedDirectories[parent]
+                ?: registerDirectory(parent, mockk(relaxed = true), "doc-${nextDocumentId++}")
+
+        for (child in children) {
+            val childDocumentId = "${directory.documentId}/${child.name}"
+            val childUri = mockk<Uri>(relaxed = true)
+            every {
+                DocumentsContract.buildDocumentUriUsingTree(directory.uri, childDocumentId)
+            } returns childUri
+            child.document?.let { document ->
+                every { DocumentFile.fromTreeUri(mockContext, childUri) } returns document
+                // The provider recurses on the URI the enumeration produced, so a child that is
+                // itself stubbed later must already be bound to that same URI and document id.
+                if (child.isDirectory && stubbedDirectories[document] == null) {
+                    registerDirectory(document, childUri, childDocumentId)
+                }
+            }
+            directory.children += child
+        }
+    }
+
+    /** Binds [document] to [uri] and makes its children readable through one stubbed query. */
+    private fun registerDirectory(
+        document: DocumentFile,
+        uri: Uri,
+        documentId: String,
+    ): StubbedDirectory {
+        val childrenUri = mockk<Uri>(relaxed = true)
+        every { document.uri } returns uri
+        every { DocumentsContract.getDocumentId(uri) } returns documentId
+        every { DocumentsContract.buildChildDocumentsUriUsingTree(uri, documentId) } returns childrenUri
+        // `answers`, not `returns`: each query must get a cursor at position -1.
+        every { mockContentResolver.query(childrenUri, any(), any(), any(), any()) } answers {
+            childrenCursor(stubbedDirectories.getValue(document))
+        }
+        return StubbedDirectory(uri, documentId).also { stubbedDirectories[document] = it }
+    }
+
+    /** Registers [parent] as an empty directory. */
+    private fun stubNoChildren(parent: DocumentFile) = stubChildren(parent)
+
+    private fun childrenCursor(directory: StubbedDirectory): Cursor {
+        val cursor = mockk<Cursor>(relaxed = true)
+        var position = -1
+        val rows = directory.children
+        every { cursor.moveToNext() } answers {
+            position++
+            position < rows.size
+        }
+        every { cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID) } returns 0
+        every { cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME) } returns 1
+        every { cursor.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE) } returns 2
+        every { cursor.getColumnIndex(DocumentsContract.Document.COLUMN_SIZE) } returns 3
+        every { cursor.getColumnIndex(DocumentsContract.Document.COLUMN_LAST_MODIFIED) } returns 4
+        every { cursor.isNull(any()) } returns false
+        every { cursor.getString(0) } answers { "${directory.documentId}/${rows[position].name}" }
+        every { cursor.getString(1) } answers { rows[position].name }
+        every { cursor.getString(2) } answers {
+            rows[position].let { if (it.isDirectory) DocumentsContract.Document.MIME_TYPE_DIR else it.mimeType }
+        }
+        every { cursor.getLong(3) } answers { rows[position].size }
+        every { cursor.getLong(4) } answers { rows[position].lastModified }
+        return cursor
+    }
+
     // ─────────────────────────────────────────────────────────────────────
     // listFiles
     // ─────────────────────────────────────────────────────────────────────
@@ -133,24 +237,13 @@ class FileOperationProviderTest {
                 setupRootDocument(mockDir)
                 every { mockDir.isDirectory } returns true
 
-                val dirChild =
-                    mockk<DocumentFile> {
-                        every { name } returns "subdir"
-                        every { isDirectory } returns true
-                        every { isFile } returns false
-                        every { lastModified() } returns 1000L
-                        every { type } returns null
-                    }
-                val fileChild =
-                    mockk<DocumentFile> {
-                        every { name } returns "test.txt"
-                        every { isDirectory } returns false
-                        every { isFile } returns true
-                        every { length() } returns 500L
-                        every { lastModified() } returns 2000L
-                        every { type } returns "text/plain"
-                    }
-                every { mockDir.listFiles() } returns arrayOf(dirChild, fileChild)
+                stubChildren(
+                    mockDir,
+                    listOf(
+                        TestChild("subdir", isDirectory = true, lastModified = 1000L),
+                        TestChild("test.txt", size = 500L, lastModified = 2000L, mimeType = "text/plain"),
+                    ),
+                )
 
                 // Act
                 val result = provider.listFiles("loc1", "", 0, 10)
@@ -198,19 +291,12 @@ class FileOperationProviderTest {
                 setupRootDocument(mockDir)
                 every { mockDir.isDirectory } returns true
 
-                val children =
-                    ('a'..'e')
-                        .map { letter ->
-                            mockk<DocumentFile> {
-                                every { name } returns "file_$letter.txt"
-                                every { isDirectory } returns false
-                                every { isFile } returns true
-                                every { length() } returns 100L
-                                every { lastModified() } returns 1000L
-                                every { type } returns "text/plain"
-                            }
-                        }.toTypedArray()
-                every { mockDir.listFiles() } returns children
+                stubChildren(
+                    mockDir,
+                    ('a'..'e').map { letter ->
+                        TestChild("file_$letter.txt", size = 100L, lastModified = 1000L, mimeType = "text/plain")
+                    },
+                )
 
                 // Act — skip 2, take 2 from 5 total
                 val result = provider.listFiles("loc1", "", 2, 2)
@@ -232,19 +318,17 @@ class FileOperationProviderTest {
                 setupRootDocument(mockDir)
                 every { mockDir.isDirectory } returns true
 
-                val children =
-                    (1..LIST_ENTRIES_ABOVE_MAX)
-                        .map { i ->
-                            mockk<DocumentFile> {
-                                every { name } returns "file_%03d.txt".format(i)
-                                every { isDirectory } returns false
-                                every { isFile } returns true
-                                every { length() } returns 100L
-                                every { lastModified() } returns 1000L
-                                every { type } returns "text/plain"
-                            }
-                        }.toTypedArray()
-                every { mockDir.listFiles() } returns children
+                stubChildren(
+                    mockDir,
+                    (1..LIST_ENTRIES_ABOVE_MAX).map { i ->
+                        TestChild(
+                            "file_%03d.txt".format(i),
+                            size = 100L,
+                            lastModified = 1000L,
+                            mimeType = "text/plain",
+                        )
+                    },
+                )
 
                 // Act — request limit far above MAX_LIST_ENTRIES
                 val result = provider.listFiles("loc1", "", 0, REQUESTED_LIMIT_ABOVE_MAX)
@@ -272,7 +356,7 @@ class FileOperationProviderTest {
                 setupRootDocument(mockRootDoc)
                 val mockFile = mockk<DocumentFile>()
                 val mockFileUri = mockk<Uri>()
-                every { mockRootDoc.findFile("data.txt") } returns mockFile
+                stubChildren(mockRootDoc, listOf(TestChild("data.txt", document = mockFile)))
                 every { mockFile.isFile } returns true
                 every { mockFile.length() } returns 100L
                 every { mockFile.uri } returns mockFileUri
@@ -303,7 +387,7 @@ class FileOperationProviderTest {
                 setupRootDocument(mockRootDoc)
                 val mockFile = mockk<DocumentFile>()
                 val mockFileUri = mockk<Uri>()
-                every { mockRootDoc.findFile("big.txt") } returns mockFile
+                stubChildren(mockRootDoc, listOf(TestChild("big.txt", document = mockFile)))
                 every { mockFile.isFile } returns true
                 every { mockFile.length() } returns 10_000L
                 every { mockFile.uri } returns mockFileUri
@@ -336,7 +420,7 @@ class FileOperationProviderTest {
                 setupRootDocument(mockRootDoc)
                 val mockFile = mockk<DocumentFile>()
                 val mockFileUri = mockk<Uri>()
-                every { mockRootDoc.findFile("file.txt") } returns mockFile
+                stubChildren(mockRootDoc, listOf(TestChild("file.txt", document = mockFile)))
                 every { mockFile.isFile } returns true
                 every { mockFile.length() } returns 50L
                 every { mockFile.uri } returns mockFileUri
@@ -392,7 +476,7 @@ class FileOperationProviderTest {
                 val mockRootDoc = mockk<DocumentFile>()
                 setupRootDocument(mockRootDoc)
                 val mockFile = mockk<DocumentFile>()
-                every { mockRootDoc.findFile("huge.bin") } returns mockFile
+                stubChildren(mockRootDoc, listOf(TestChild("huge.bin", document = mockFile)))
                 every { mockFile.isFile } returns true
                 every { mockFile.length() } returns FILE_SIZE_EXCEEDING_LIMIT
                 coEvery { mockSettingsRepository.getServerConfig() } returns
@@ -415,7 +499,7 @@ class FileOperationProviderTest {
                 setupRootDocument(mockRootDoc)
                 val mockFile = mockk<DocumentFile>()
                 val mockFileUri = mockk<Uri>()
-                every { mockRootDoc.findFile("multiline.txt") } returns mockFile
+                stubChildren(mockRootDoc, listOf(TestChild("multiline.txt", document = mockFile)))
                 every { mockFile.isFile } returns true
                 every { mockFile.length() } returns 10_000L
                 every { mockFile.uri } returns mockFileUri
@@ -458,7 +542,7 @@ class FileOperationProviderTest {
                 setupRootDocument(mockRootDoc)
                 val mockFile = mockk<DocumentFile>()
                 val mockFileUri = mockk<Uri>()
-                every { mockRootDoc.findFile("doc.pdf") } returns mockFile
+                stubChildren(mockRootDoc, listOf(TestChild("doc.pdf", document = mockFile)))
                 every { mockFile.isFile } returns true
                 every { mockFile.length() } returns 4L
                 every { mockFile.uri } returns mockFileUri
@@ -485,7 +569,7 @@ class FileOperationProviderTest {
                 setupAuthorizedLocation("loc1")
                 val mockRootDoc = mockk<DocumentFile>()
                 setupRootDocument(mockRootDoc)
-                every { mockRootDoc.findFile("missing.pdf") } returns null
+                stubNoChildren(mockRootDoc)
 
                 // Act & Assert
                 val exception =
@@ -503,7 +587,7 @@ class FileOperationProviderTest {
                 val mockRootDoc = mockk<DocumentFile>()
                 setupRootDocument(mockRootDoc)
                 val mockFile = mockk<DocumentFile>()
-                every { mockRootDoc.findFile("huge.bin") } returns mockFile
+                stubChildren(mockRootDoc, listOf(TestChild("huge.bin", document = mockFile)))
                 every { mockFile.isFile } returns true
                 every { mockFile.length() } returns FILE_SIZE_EXCEEDING_LIMIT
                 every { mockFile.uri } returns mockk()
@@ -537,7 +621,7 @@ class FileOperationProviderTest {
 
                 val mockCreatedFile = mockk<DocumentFile>()
                 val mockFileUri = mockk<Uri>()
-                every { mockRootDoc.findFile("file.txt") } returns null
+                stubNoChildren(mockRootDoc)
                 every { mockRootDoc.createFile("text/plain", "file.txt") } returns mockCreatedFile
                 every { mockCreatedFile.uri } returns mockFileUri
 
@@ -563,7 +647,7 @@ class FileOperationProviderTest {
 
                 val mockCreatedFile = mockk<DocumentFile>()
                 val mockFileUri = mockk<Uri>()
-                every { mockRootDoc.findFile("empty.txt") } returns null
+                stubNoChildren(mockRootDoc)
                 every { mockRootDoc.createFile("text/plain", "empty.txt") } returns mockCreatedFile
                 every { mockCreatedFile.uri } returns mockFileUri
 
@@ -604,12 +688,12 @@ class FileOperationProviderTest {
                 setupRootDocument(rootDoc)
 
                 val subDirDoc = mockk<DocumentFile>()
-                every { rootDoc.findFile("subdir") } returns null
+                stubNoChildren(rootDoc)
                 every { rootDoc.createDirectory("subdir") } returns subDirDoc
 
                 val createdFile = mockk<DocumentFile>()
                 val mockFileUri = mockk<Uri>()
-                every { subDirDoc.findFile("file.txt") } returns null
+                stubNoChildren(subDirDoc)
                 every { subDirDoc.createFile("text/plain", "file.txt") } returns createdFile
                 every { createdFile.uri } returns mockFileUri
 
@@ -644,7 +728,7 @@ class FileOperationProviderTest {
 
                 val mockFile = mockk<DocumentFile>()
                 val mockFileUri = mockk<Uri>()
-                every { mockRootDoc.findFile("file.txt") } returns mockFile
+                stubChildren(mockRootDoc, listOf(TestChild("file.txt", document = mockFile)))
                 every { mockFile.isFile } returns true
                 every { mockFile.length() } returns 100L
                 every { mockFile.uri } returns mockFileUri
@@ -673,7 +757,7 @@ class FileOperationProviderTest {
                 setupRootDocument(mockRootDoc)
 
                 val mockFile = mockk<DocumentFile>()
-                every { mockRootDoc.findFile("file.txt") } returns mockFile
+                stubChildren(mockRootDoc, listOf(TestChild("file.txt", document = mockFile)))
                 every { mockFile.isFile } returns true
                 every { mockFile.length() } returns BYTES_PER_MB.toLong()
 
@@ -697,7 +781,7 @@ class FileOperationProviderTest {
 
                 val mockFile = mockk<DocumentFile>()
                 val mockFileUri = mockk<Uri>()
-                every { mockRootDoc.findFile("file.txt") } returns mockFile
+                stubChildren(mockRootDoc, listOf(TestChild("file.txt", document = mockFile)))
                 every { mockFile.isFile } returns true
                 every { mockFile.length() } returns 100L
                 every { mockFile.uri } returns mockFileUri
@@ -732,7 +816,7 @@ class FileOperationProviderTest {
 
             val mockFile = mockk<DocumentFile>()
             val mockFileUri = mockk<Uri>()
-            every { mockRootDoc.findFile("file.txt") } returns mockFile
+            stubChildren(mockRootDoc, listOf(TestChild("file.txt", document = mockFile)))
             every { mockFile.isFile } returns true
             every { mockFile.isDirectory } returns false
             every { mockFile.length() } returns originalContent.length.toLong()
@@ -823,7 +907,7 @@ class FileOperationProviderTest {
                 val mockRootDoc = mockk<DocumentFile>()
                 setupRootDocument(mockRootDoc)
                 val mockFile = mockk<DocumentFile>()
-                every { mockRootDoc.findFile("big.bin") } returns mockFile
+                stubChildren(mockRootDoc, listOf(TestChild("big.bin", document = mockFile)))
                 every { mockFile.isFile } returns true
                 every { mockFile.length() } returns FILE_SIZE_EXCEEDING_LIMIT
                 coEvery { mockSettingsRepository.getServerConfig() } returns
@@ -933,7 +1017,7 @@ class FileOperationProviderTest {
                 setupRootDocument(rootDoc)
                 val mockFile = mockk<DocumentFile>()
                 val mockFileUri = mockk<Uri>()
-                every { rootDoc.findFile("file.txt") } returns null
+                stubNoChildren(rootDoc)
                 every { rootDoc.createFile("text/plain", "file.txt") } returns mockFile
                 every { mockFile.uri } returns mockFileUri
 
@@ -978,7 +1062,7 @@ class FileOperationProviderTest {
                 setupRootDocument(rootDoc)
                 val mockFile = mockk<DocumentFile>()
                 val mockFileUri = mockk<Uri>()
-                every { rootDoc.findFile("file.txt") } returns null
+                stubNoChildren(rootDoc)
                 every { rootDoc.createFile("text/plain", "file.txt") } returns mockFile
                 every { mockFile.uri } returns mockFileUri
                 every { mockFile.delete() } returns true
@@ -1031,7 +1115,7 @@ class FileOperationProviderTest {
                 setupRootDocument(rootDoc)
                 val mockFile = mockk<DocumentFile>()
                 val mockFileUri = mockk<Uri>()
-                every { rootDoc.findFile("file.txt") } returns null
+                stubNoChildren(rootDoc)
                 every { rootDoc.createFile("text/plain", "file.txt") } returns mockFile
                 every { mockFile.uri } returns mockFileUri
 
@@ -1062,7 +1146,7 @@ class FileOperationProviderTest {
                 val mockRootDoc = mockk<DocumentFile>()
                 setupRootDocument(mockRootDoc)
                 val mockFile = mockk<DocumentFile>()
-                every { mockRootDoc.findFile("file.txt") } returns mockFile
+                stubChildren(mockRootDoc, listOf(TestChild("file.txt", document = mockFile)))
                 every { mockFile.isDirectory } returns false
                 every { mockFile.delete() } returns true
 
@@ -1081,7 +1165,7 @@ class FileOperationProviderTest {
                 val mockRootDoc = mockk<DocumentFile>()
                 setupRootDocument(mockRootDoc)
                 val mockDir = mockk<DocumentFile>()
-                every { mockRootDoc.findFile("subdir") } returns mockDir
+                stubChildren(mockRootDoc, listOf(TestChild("subdir", document = mockDir)))
                 every { mockDir.isDirectory } returns true
 
                 // Act & Assert
@@ -1283,7 +1367,7 @@ class FileOperationProviderTest {
 
                 val mockCreatedFile = mockk<DocumentFile>()
                 val mockFileUri = mockk<Uri>()
-                every { mockRootDoc.findFile("photo.jpg") } returns null
+                stubNoChildren(mockRootDoc)
                 every { mockRootDoc.createFile("image/jpeg", "photo.jpg") } returns mockCreatedFile
                 every { mockCreatedFile.uri } returns mockFileUri
 
@@ -1333,12 +1417,12 @@ class FileOperationProviderTest {
                 setupRootDocument(rootDoc)
 
                 val subDirDoc = mockk<DocumentFile>()
-                every { rootDoc.findFile("photos") } returns null
+                stubNoChildren(rootDoc)
                 every { rootDoc.createDirectory("photos") } returns subDirDoc
 
                 val mockCreatedFile = mockk<DocumentFile>()
                 val mockFileUri = mockk<Uri>()
-                every { subDirDoc.findFile("photo.jpg") } returns null
+                stubNoChildren(subDirDoc)
                 every { subDirDoc.createFile("image/jpeg", "photo.jpg") } returns mockCreatedFile
                 every { mockCreatedFile.uri } returns mockFileUri
 
@@ -1377,7 +1461,7 @@ class FileOperationProviderTest {
                 val mockDir = mockk<DocumentFile>()
                 setupRootDocument(mockDir)
                 every { mockDir.isDirectory } returns true
-                every { mockDir.listFiles() } returns emptyArray()
+                stubNoChildren(mockDir)
 
                 provider.listFiles("loc1", "", 0, 10)
 
@@ -1575,6 +1659,186 @@ class FileOperationProviderTest {
                         provider.createFileUri("loc1", "bad\u0000name.txt", "text/plain")
                     }
                 assertTrue(exception.message!!.contains("control"))
+            }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // diskUsage
+    // ─────────────────────────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("diskUsage")
+    inner class DiskUsage {
+        @Test
+        fun `diskUsage aggregates the whole subtree`() =
+            runTest {
+                setupAuthorizedLocation("loc1")
+                val rootDoc = mockk<DocumentFile>()
+                setupRootDocument(rootDoc)
+                every { rootDoc.isDirectory } returns true
+
+                val subDoc = mockk<DocumentFile>()
+                stubChildren(
+                    rootDoc,
+                    listOf(
+                        TestChild("a.bin", size = 100L),
+                        TestChild("b.bin", size = 200L),
+                        TestChild("sub", isDirectory = true, document = subDoc),
+                    ),
+                )
+                stubChildren(subDoc, listOf(TestChild("c.bin", size = 700L)))
+
+                val result = provider.diskUsage("loc1", "", 1)
+
+                assertEquals(1000L, result.root.totalBytes)
+                assertEquals(3, result.root.fileCount)
+                assertFalse(result.truncated)
+                assertTrue(result.complete)
+                assertEquals(1, result.root.children.size)
+                assertEquals("sub", result.root.children[0].path)
+                assertEquals(700L, result.root.children[0].totalBytes)
+            }
+
+        @Test
+        fun `diskUsage totals stay complete below the requested depth`() =
+            runTest {
+                setupAuthorizedLocation("loc1")
+                val rootDoc = mockk<DocumentFile>()
+                setupRootDocument(rootDoc)
+                every { rootDoc.isDirectory } returns true
+
+                val subDoc = mockk<DocumentFile>()
+                val deepDoc = mockk<DocumentFile>()
+                stubChildren(rootDoc, listOf(TestChild("sub", isDirectory = true, document = subDoc)))
+                stubChildren(subDoc, listOf(TestChild("deep", isDirectory = true, document = deepDoc)))
+                stubChildren(deepDoc, listOf(TestChild("buried.bin", size = 4096L)))
+
+                // maxDepth 0 reports no breakdown at all, but the total still covers `deep`.
+                val result = provider.diskUsage("loc1", "", 0)
+
+                assertEquals(4096L, result.root.totalBytes)
+                assertEquals(1, result.root.fileCount)
+                assertTrue(result.root.children.isEmpty())
+            }
+
+        @Test
+        fun `diskUsage reads each directory exactly once`() =
+            runTest {
+                setupAuthorizedLocation("loc1")
+                val rootDoc = mockk<DocumentFile>()
+                setupRootDocument(rootDoc)
+                every { rootDoc.isDirectory } returns true
+
+                val subDoc = mockk<DocumentFile>()
+                stubChildren(
+                    rootDoc,
+                    (1..LIST_ENTRIES_ABOVE_MAX).map { TestChild("f$it.bin", size = 1L) } +
+                        TestChild("sub", isDirectory = true, document = subDoc),
+                )
+                stubChildren(subDoc, (1..LIST_ENTRIES_ABOVE_MAX).map { TestChild("g$it.bin", size = 1L) })
+
+                provider.diskUsage("loc1", "", 1)
+
+                // The regression this guards: reading a directory through DocumentFile costs a
+                // query per child per attribute, which is what made disk_usage time out on a real
+                // media folder. Two directories must cost two queries, whatever their size.
+                verify(exactly = 2) { mockContentResolver.query(any(), any(), any(), any(), any()) }
+            }
+
+        @Test
+        fun `diskUsage throws InvalidParams when the path is not a directory`() =
+            runTest {
+                setupAuthorizedLocation("loc1")
+                val rootDoc = mockk<DocumentFile>()
+                setupRootDocument(rootDoc)
+                every { rootDoc.isDirectory } returns true
+                val fileDoc = mockk<DocumentFile> { every { isDirectory } returns false }
+                stubChildren(rootDoc, listOf(TestChild("notadir.txt", document = fileDoc)))
+
+                assertThrows<McpToolException.InvalidParams> {
+                    provider.diskUsage("loc1", "notadir.txt", 1)
+                }
+            }
+
+        @Test
+        fun `diskUsage throws PermissionDenied for unauthorized location`() =
+            runTest {
+                setupUnauthorizedLocation("loc1")
+
+                assertThrows<McpToolException.PermissionDenied> {
+                    provider.diskUsage("loc1", "", 1)
+                }
+            }
+
+        @Test
+        fun `diskUsage routes to MediaStore for builtin ID`() =
+            runTest {
+                val expected =
+                    com.danielealbano.androidremotecontrolmcp.data.model.DiskUsageResult(
+                        root =
+                            com.danielealbano.androidremotecontrolmcp.data.model.DiskUsageNode(
+                                path = "",
+                                totalBytes = 42L,
+                                fileCount = 1,
+                                children = emptyList(),
+                            ),
+                        truncated = false,
+                        complete = true,
+                    )
+                coEvery { mockMediaStoreFileOperations.diskUsage("builtin:pictures", "", 1) } returns expected
+
+                val result = provider.diskUsage("builtin:pictures", "", 1)
+
+                assertEquals(42L, result.root.totalBytes)
+                coVerify(exactly = 1) { mockMediaStoreFileOperations.diskUsage("builtin:pictures", "", 1) }
+            }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Directory enumeration cost
+    // ─────────────────────────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("directory enumeration cost")
+    inner class DirectoryEnumerationCost {
+        @Test
+        fun `listFiles reads the directory with a single query`() =
+            runTest {
+                setupAuthorizedLocation("loc1")
+                val mockDir = mockk<DocumentFile>()
+                setupRootDocument(mockDir)
+                every { mockDir.isDirectory } returns true
+                stubChildren(mockDir, (1..LIST_ENTRIES_ABOVE_MAX).map { TestChild("f%03d.bin".format(it)) })
+
+                provider.listFiles("loc1", "", 0, 10)
+
+                // Sorting by name used to query the provider on every comparison.
+                verify(exactly = 1) { mockContentResolver.query(any(), any(), any(), any(), any()) }
+            }
+
+        @Test
+        fun `resolving a nested path costs one query per segment`() =
+            runTest {
+                setupAuthorizedLocation("loc1")
+                val rootDoc = mockk<DocumentFile>()
+                setupRootDocument(rootDoc)
+                val subDoc = mockk<DocumentFile>()
+                val leafDoc = mockk<DocumentFile> { every { isDirectory } returns true }
+                stubChildren(
+                    rootDoc,
+                    (1..LIST_ENTRIES_ABOVE_MAX).map { TestChild("noise$it.bin") } +
+                        TestChild("sub", isDirectory = true, document = subDoc),
+                )
+                stubChildren(subDoc, listOf(TestChild("leaf", isDirectory = true, document = leafDoc)))
+                stubChildren(leafDoc, listOf(TestChild("found.txt", size = 7L)))
+
+                val result = provider.listFiles("loc1", "sub/leaf", 0, 10)
+
+                assertEquals(1, result.files.size)
+                assertEquals("found.txt", result.files[0].name)
+                assertEquals(7L, result.files[0].size)
+                // Two segments to walk plus the listing itself — not one per child scanned.
+                verify(exactly = 3) { mockContentResolver.query(any(), any(), any(), any(), any()) }
             }
     }
 

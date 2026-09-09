@@ -60,7 +60,11 @@ class FakeFileOperationProvider(
         if (!allowDelete) throw McpToolException.PermissionDenied("Delete not allowed")
     }
 
-    private fun isDirectory(path: String): Boolean = path in explicitDirectories || files.keys.any { it.startsWith("$path/") }
+    private fun isDirectory(path: String): Boolean {
+        if (path in explicitDirectories) return true
+        val prefix = "$path/"
+        return files.keys.any { it.startsWith(prefix) }
+    }
 
     override suspend fun listFiles(
         locationId: String,
@@ -223,20 +227,7 @@ class FakeFileOperationProvider(
         requireDelete()
         BuiltinStorageLocation.validatePath(sourcePath)
         BuiltinStorageLocation.validatePath(destinationPath)
-        if (sourcePath in failMoveFor) {
-            throw McpToolException.ActionFailed("Move failed for $sourcePath")
-        }
-        if (!supportsMove && !allowCopyFallback) {
-            throw McpToolException.InvalidParams(
-                "The storage provider supports neither move nor rename for this file.",
-            )
-        }
-        if (isDirectory(destinationPath)) {
-            throw McpToolException.InvalidParams("Destination is a directory: $destinationPath")
-        }
-        if (files.containsKey(destinationPath) && !overwrite) {
-            throw McpToolException.InvalidParams("Destination already exists: $destinationPath")
-        }
+        rejectImpossibleMove(sourcePath, destinationPath, overwrite, allowCopyFallback)
         val bytes =
             files.remove(sourcePath)
                 ?: throw McpToolException.ActionFailed("File not found: $sourcePath")
@@ -247,6 +238,40 @@ class FakeFileOperationProvider(
             sizeBytes = bytes.size.toLong(),
             mechanism = if (supportsMove) MoveMechanism.MOVE_DOCUMENT else MoveMechanism.COPY_DELETE,
         )
+    }
+
+    /** Every reason the fake refuses a move, in the order the real provider checks them. */
+    private fun rejectImpossibleMove(
+        sourcePath: String,
+        destinationPath: String,
+        overwrite: Boolean,
+        allowCopyFallback: Boolean,
+    ) {
+        val refusal =
+            when {
+                sourcePath in failMoveFor -> {
+                    McpToolException.ActionFailed("Move failed for $sourcePath")
+                }
+
+                !supportsMove && !allowCopyFallback -> {
+                    McpToolException.InvalidParams(
+                        "The storage provider supports neither move nor rename for this file.",
+                    )
+                }
+
+                isDirectory(destinationPath) -> {
+                    McpToolException.InvalidParams("Destination is a directory: $destinationPath")
+                }
+
+                files.containsKey(destinationPath) && !overwrite -> {
+                    McpToolException.InvalidParams("Destination already exists: $destinationPath")
+                }
+
+                else -> {
+                    null
+                }
+            }
+        if (refusal != null) throw refusal
     }
 
     override suspend fun createDirectory(

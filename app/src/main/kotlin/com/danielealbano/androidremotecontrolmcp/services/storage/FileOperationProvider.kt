@@ -117,6 +117,96 @@ data class FileMoveResult(
 )
 
 /**
+ * Operations that act on directories rather than on a single file's contents.
+ *
+ * Split out of [FileOperationProvider] because they form their own responsibility: they reshape
+ * the tree (move, create, delete) or measure it, while the rest of the provider reads and writes
+ * the bytes of one file. [FileOperationProvider] extends this, so callers still inject one type.
+ */
+interface DirectoryOperationProvider {
+    /**
+     * Moves a file to a different path within the same storage location.
+     *
+     * Requires write AND delete permission: the file leaves the path it occupied, which is a
+     * deletion from that path's point of view.
+     *
+     * @param locationId The authorized storage location identifier.
+     * @param sourcePath Relative path of the existing file.
+     * @param destinationPath Relative destination path; parent directories are created.
+     * @param overwrite When false, an existing destination file fails the operation. An
+     *   existing destination *directory* fails regardless of this flag, because removing one
+     *   would take its whole subtree with it.
+     * @param allowCopyFallback When false and the storage provider supports neither move nor
+     *   rename, the operation fails instead of duplicating the file's bytes.
+     * @return [FileMoveResult] describing the destination reached and the mechanism used.
+     */
+    suspend fun moveFile(
+        locationId: String,
+        sourcePath: String,
+        destinationPath: String,
+        overwrite: Boolean,
+        allowCopyFallback: Boolean,
+    ): FileMoveResult
+
+    /**
+     * Creates [path] as a directory, including any missing parents.
+     *
+     * @param locationId The authorized storage location identifier.
+     * @param path Relative path of the directory.
+     * @return true when the directory was newly created, false when it already existed. A
+     *   caller claiming a uniquely named directory uses the false result to detect a collision.
+     */
+    suspend fun createDirectory(
+        locationId: String,
+        path: String,
+    ): Boolean
+
+    /**
+     * Reports what lives at [path], or null when nothing does.
+     *
+     * @param locationId The authorized storage location identifier.
+     * @param path Relative path to inspect.
+     */
+    suspend fun statPath(
+        locationId: String,
+        path: String,
+    ): PathKind?
+
+    /**
+     * Deletes a directory and everything below it.
+     *
+     * [deleteFile] refuses directories by design, so a caller that needs to remove a whole
+     * subtree uses this instead. Throws rather than deleting partially when the subtree exceeds
+     * [MAX_USAGE_NODES] directories: a partial delete reporting success would leave files
+     * stranded with no record of them.
+     *
+     * @param locationId The authorized storage location identifier.
+     * @param path Relative path of the directory.
+     * @return the number of files deleted.
+     */
+    suspend fun deleteDirectory(
+        locationId: String,
+        path: String,
+    ): Int
+
+    /**
+     * Aggregates the size of every file below [path].
+     *
+     * Totals always cover the whole subtree; [maxDepth] limits only how deep the returned tree
+     * is broken down, so a shallow request still reports a complete total.
+     *
+     * @param locationId The authorized storage location identifier.
+     * @param path Relative path to aggregate; empty for the location root.
+     * @param maxDepth How many levels of sub-directory to itemize.
+     */
+    suspend fun diskUsage(
+        locationId: String,
+        path: String,
+        maxDepth: Int,
+    ): DiskUsageResult
+}
+
+/**
  * Provides file operations via the Storage Access Framework.
  *
  * All operations work with virtual paths: "{location_id}/{relative_path}".
@@ -124,7 +214,7 @@ data class FileMoveResult(
  *
  * All operations check the configured file size limit before proceeding.
  */
-interface FileOperationProvider {
+interface FileOperationProvider : DirectoryOperationProvider {
     /**
      * Lists files in a directory.
      *
@@ -274,87 +364,6 @@ interface FileOperationProvider {
         path: String,
         mimeType: String,
     ): Uri
-
-    /**
-     * Moves a file to a different path within the same storage location.
-     *
-     * Requires write AND delete permission: the file leaves the path it occupied, which is a
-     * deletion from that path's point of view.
-     *
-     * @param locationId The authorized storage location identifier.
-     * @param sourcePath Relative path of the existing file.
-     * @param destinationPath Relative destination path; parent directories are created.
-     * @param overwrite When false, an existing destination file fails the operation. An
-     *   existing destination *directory* fails regardless of this flag, because removing one
-     *   would take its whole subtree with it.
-     * @param allowCopyFallback When false and the storage provider supports neither move nor
-     *   rename, the operation fails instead of duplicating the file's bytes.
-     * @return [FileMoveResult] describing the destination reached and the mechanism used.
-     */
-    suspend fun moveFile(
-        locationId: String,
-        sourcePath: String,
-        destinationPath: String,
-        overwrite: Boolean,
-        allowCopyFallback: Boolean,
-    ): FileMoveResult
-
-    /**
-     * Creates [path] as a directory, including any missing parents.
-     *
-     * @param locationId The authorized storage location identifier.
-     * @param path Relative path of the directory.
-     * @return true when the directory was newly created, false when it already existed. A
-     *   caller claiming a uniquely named directory uses the false result to detect a collision.
-     */
-    suspend fun createDirectory(
-        locationId: String,
-        path: String,
-    ): Boolean
-
-    /**
-     * Reports what lives at [path], or null when nothing does.
-     *
-     * @param locationId The authorized storage location identifier.
-     * @param path Relative path to inspect.
-     */
-    suspend fun statPath(
-        locationId: String,
-        path: String,
-    ): PathKind?
-
-    /**
-     * Deletes a directory and everything below it.
-     *
-     * [deleteFile] refuses directories by design, so a caller that needs to remove a whole
-     * subtree uses this instead. Throws rather than deleting partially when the subtree exceeds
-     * [MAX_USAGE_NODES] directories: a partial delete reporting success would leave files
-     * stranded with no record of them.
-     *
-     * @param locationId The authorized storage location identifier.
-     * @param path Relative path of the directory.
-     * @return the number of files deleted.
-     */
-    suspend fun deleteDirectory(
-        locationId: String,
-        path: String,
-    ): Int
-
-    /**
-     * Aggregates the size of every file below [path].
-     *
-     * Totals always cover the whole subtree; [maxDepth] limits only how deep the returned tree
-     * is broken down, so a shallow request still reports a complete total.
-     *
-     * @param locationId The authorized storage location identifier.
-     * @param path Relative path to aggregate; empty for the location root.
-     * @param maxDepth How many levels of sub-directory to itemize.
-     */
-    suspend fun diskUsage(
-        locationId: String,
-        path: String,
-        maxDepth: Int,
-    ): DiskUsageResult
 
     companion object {
         /** Maximum entries returned by list_files. */

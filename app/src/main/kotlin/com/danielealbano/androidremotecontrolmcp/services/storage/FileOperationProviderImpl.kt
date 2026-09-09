@@ -68,27 +68,27 @@ class FileOperationProviderImpl
                 )
             }
 
-            val children = directory.listFiles()
+            val children = readChildren(directory.uri)
             val totalCount = children.size
             val cappedLimit = limit.coerceAtMost(FileOperationProvider.MAX_LIST_ENTRIES)
 
             val paginatedChildren =
                 children
-                    .sortedWith(compareByDescending<DocumentFile> { it.isDirectory }.thenBy { it.name })
+                    .sortedWith(compareByDescending<ChildDocument> { it.isDirectory }.thenBy { it.name })
                     .drop(offset)
                     .take(cappedLimit)
 
             val files =
                 paginatedChildren.map { child ->
-                    val childName = child.name ?: "unknown"
+                    val childName = child.name.ifEmpty { "unknown" }
                     val relativePath = if (path.isEmpty()) childName else "$path/$childName"
                     FileInfo(
                         name = childName,
                         path = "$locationId/$relativePath",
                         isDirectory = child.isDirectory,
-                        size = if (child.isFile) child.length() else 0L,
-                        lastModified = child.lastModified().takeIf { it > 0L },
-                        mimeType = child.type,
+                        size = if (child.isDirectory) 0L else child.sizeBytes,
+                        lastModified = child.lastModified.takeIf { it > 0L },
+                        mimeType = child.mimeType,
                     )
                 }
 
@@ -515,7 +515,7 @@ class FileOperationProviderImpl
                 }
                 val destinationParent = ensureDirectory(locationId, destinationParentPath)
 
-                destinationParent.findFile(destinationName)?.let { existing ->
+                findChild(destinationParent, destinationName)?.let { existing ->
                     // A directory is never removed to make room. DocumentFile.delete() on a
                     // directory takes its whole subtree with it, so honouring `overwrite` here
                     // would turn one mistaken argument into unbounded data loss.
@@ -665,8 +665,9 @@ class FileOperationProviderImpl
                                 "directories; nothing was deleted. Delete a smaller subtree.",
                         )
                     }
-                    for (child in dir.listFiles()) {
-                        if (child.isDirectory) stack.addLast(child) else files += child
+                    for (child in readChildren(dir.uri)) {
+                        val childFile = asDocumentFile(child.uri)
+                        if (child.isDirectory) stack.addLast(childFile) else files += childFile
                     }
                 }
 
@@ -705,7 +706,7 @@ class FileOperationProviderImpl
                 }
 
                 val budget = UsageBudget()
-                val node = walkUsage(root, path, 0, maxDepth, budget)
+                val node = walkUsage(root.uri, path, 0, maxDepth, budget)
                 DiskUsageResult(node, budget.exhausted, complete = true)
             }
 
@@ -716,14 +717,15 @@ class FileOperationProviderImpl
         }
 
         /**
-         * Aggregates [dir] recursively.
+         * Aggregates the directory at [dirUri] recursively.
          *
-         * Enumerates with [DocumentFile.listFiles] rather than this provider's own `listFiles`,
-         * which caps at [FileOperationProvider.MAX_LIST_ENTRIES] and would silently under-count
-         * a large media directory.
+         * Enumerates with [readChildren] rather than this provider's own `listFiles`, which caps
+         * at [FileOperationProvider.MAX_LIST_ENTRIES] and would silently under-count a large media
+         * directory. Sizes come straight out of the enumeration cursor, so a directory of any size
+         * costs one query.
          */
         private suspend fun walkUsage(
-            dir: DocumentFile,
+            dirUri: Uri,
             relativePath: String,
             depth: Int,
             maxDepth: Int,
@@ -738,17 +740,17 @@ class FileOperationProviderImpl
             var totalBytes = 0L
             var fileCount = 0
             val children = mutableListOf<DiskUsageNode>()
-            for (child in dir.listFiles()) {
+            for (child in readChildren(dirUri)) {
                 if (child.isDirectory) {
-                    val childName = child.name.orEmpty()
-                    val childPath = if (relativePath.isEmpty()) childName else "$relativePath/$childName"
-                    val node = walkUsage(child, childPath, depth + 1, maxDepth, budget)
+                    val childPath =
+                        if (relativePath.isEmpty()) child.name else "$relativePath/${child.name}"
+                    val node = walkUsage(child.uri, childPath, depth + 1, maxDepth, budget)
                     // Totals always cover the whole subtree; maxDepth limits only the breakdown.
                     totalBytes += node.totalBytes
                     fileCount += node.fileCount
                     if (depth < maxDepth) children += node
                 } else {
-                    totalBytes += child.length()
+                    totalBytes += child.sizeBytes
                     fileCount++
                 }
             }
@@ -758,6 +760,121 @@ class FileOperationProviderImpl
         // ─────────────────────────────────────────────────────────────────────
         // Private helpers
         // ─────────────────────────────────────────────────────────────────────
+
+        /**
+         * The root [DocumentFile] of an authorized location.
+         *
+         * Four call sites resolved the tree URI and wrapped it by hand with the same pair of
+         * failure messages; this keeps that in one place.
+         */
+        private suspend fun rootDocumentFor(locationId: String): DocumentFile {
+            val treeUri =
+                storageLocationProvider.getTreeUriForLocation(locationId)
+                    ?: throw McpToolException.ActionFailed(
+                        "Could not retrieve tree URI for location '$locationId'",
+                    )
+            return DocumentFile.fromTreeUri(context, treeUri)
+                ?: throw McpToolException.ActionFailed(
+                    "Could not create DocumentFile from tree URI for location '$locationId'",
+                )
+        }
+
+        /**
+         * One row of a directory enumeration.
+         *
+         * Every field is filled from the enumeration cursor. That is the whole point of the type:
+         * [DocumentFile] exposes the same information only through `getName()`, `isDirectory()`,
+         * `length()`, `lastModified()` and `getType()`, and each of those is a separate
+         * ContentResolver round-trip, so reading a directory of N children through DocumentFile
+         * costs O(N) queries — and sorting it by name costs O(N log N), because the comparator
+         * queries on every comparison. On a WhatsApp media folder that is tens of thousands of IPC
+         * calls and minutes of wall time.
+         */
+        private data class ChildDocument(
+            val uri: Uri,
+            val name: String,
+            val mimeType: String?,
+            val sizeBytes: Long,
+            val lastModified: Long,
+        ) {
+            val isDirectory: Boolean
+                get() = mimeType == DocumentsContract.Document.MIME_TYPE_DIR
+        }
+
+        /**
+         * Enumerates the children of the tree document at [documentUri] in a single query.
+         *
+         * [documentUri] must be a tree document URI — every [DocumentFile] this class works with
+         * comes from [DocumentFile.fromTreeUri] or from [findChild], so it always is.
+         *
+         * Size and last-modified are optional in the DocumentsProvider contract, so a provider may
+         * omit those columns entirely; both fall back to 0, which the callers already treat as
+         * "unknown".
+         */
+        private fun readChildren(documentUri: Uri): List<ChildDocument> {
+            val childrenUri =
+                DocumentsContract.buildChildDocumentsUriUsingTree(
+                    documentUri,
+                    DocumentsContract.getDocumentId(documentUri),
+                )
+            val projection =
+                arrayOf(
+                    DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                    DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                    DocumentsContract.Document.COLUMN_MIME_TYPE,
+                    DocumentsContract.Document.COLUMN_SIZE,
+                    DocumentsContract.Document.COLUMN_LAST_MODIFIED,
+                )
+            val children = mutableListOf<ChildDocument>()
+            context.contentResolver
+                .query(childrenUri, projection, null, null, null)
+                ?.use { cursor ->
+                    val idIdx = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
+                    val nameIdx = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+                    val mimeIdx = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE)
+                    val sizeIdx = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_SIZE)
+                    val modifiedIdx = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_LAST_MODIFIED)
+                    if (idIdx < 0) return@use
+                    while (cursor.moveToNext()) {
+                        val documentId = cursor.getString(idIdx) ?: continue
+                        children +=
+                            ChildDocument(
+                                uri = DocumentsContract.buildDocumentUriUsingTree(documentUri, documentId),
+                                name = if (nameIdx < 0) "" else cursor.getString(nameIdx).orEmpty(),
+                                mimeType = if (mimeIdx < 0) null else cursor.getString(mimeIdx),
+                                sizeBytes = readOptionalLong(cursor, sizeIdx),
+                                lastModified = readOptionalLong(cursor, modifiedIdx),
+                            )
+                    }
+                }
+            return children
+        }
+
+        private fun readOptionalLong(
+            cursor: android.database.Cursor,
+            columnIndex: Int,
+        ): Long = if (columnIndex < 0 || cursor.isNull(columnIndex)) 0L else cursor.getLong(columnIndex)
+
+        /**
+         * The child of [parent] whose display name is exactly [name], or null.
+         *
+         * Replaces [DocumentFile.findFile], which enumerates and then calls `getName()` on every
+         * child until it matches — one query per child scanned.
+         */
+        private fun findChild(
+            parent: DocumentFile,
+            name: String,
+        ): DocumentFile? = readChildren(parent.uri).firstOrNull { it.name == name }?.let { asDocumentFile(it.uri) }
+
+        /**
+         * Wraps a tree document URI back into a [DocumentFile].
+         *
+         * [DocumentFile.fromTreeUri] keeps the document segment when the URI already has one, so
+         * this addresses the child itself rather than the tree root.
+         */
+        private fun asDocumentFile(documentUri: Uri): DocumentFile =
+            DocumentFile.fromTreeUri(context, documentUri)
+                ?: throw McpToolException.ActionFailed("Could not open the document at $documentUri")
 
         /** Reads [DocumentsContract.Document.COLUMN_FLAGS]; DocumentFile does not expose it. */
         private fun DocumentFile.hasDocumentFlag(flag: Int): Boolean =
@@ -803,31 +920,47 @@ class FileOperationProviderImpl
                         "Failed to create the destination file '$destinationName'",
                     )
             try {
-                context.contentResolver.openInputStream(source.uri).use { input ->
-                    context.contentResolver.openOutputStream(destination.uri).use { output ->
-                        if (input == null || output == null) {
-                            throw McpToolException.ActionFailed("Could not open the file streams")
-                        }
-                        input.copyTo(output)
-                    }
-                }
-                val written = destination.length()
-                if (written != expected) {
-                    throw McpToolException.ActionFailed(
-                        "Copy is incomplete: expected $expected bytes, wrote $written",
-                    )
-                }
+                copyContentsVerified(source.uri, destination, expected)
             } catch (e: Exception) {
                 destination.delete()
                 throw e
             }
-            if (!source.delete()) {
-                destination.delete()
+            deleteSourceOrRollback(source, destination)
+            return destination.uri
+        }
+
+        /** Removes [source] once the copy landed, undoing [destination] if it cannot be removed. */
+        private fun deleteSourceOrRollback(
+            source: DocumentFile,
+            destination: DocumentFile,
+        ) {
+            if (source.delete()) return
+            destination.delete()
+            throw McpToolException.ActionFailed(
+                "Copied the file but could not remove the source; nothing was changed",
+            )
+        }
+
+        /** Streams [sourceUri] into [destination] and fails unless [expected] bytes landed. */
+        private fun copyContentsVerified(
+            sourceUri: Uri,
+            destination: DocumentFile,
+            expected: Long,
+        ) {
+            context.contentResolver.openInputStream(sourceUri).use { input ->
+                context.contentResolver.openOutputStream(destination.uri).use { output ->
+                    if (input == null || output == null) {
+                        throw McpToolException.ActionFailed("Could not open the file streams")
+                    }
+                    input.copyTo(output)
+                }
+            }
+            val written = destination.length()
+            if (written != expected) {
                 throw McpToolException.ActionFailed(
-                    "Copied the file but could not remove the source; nothing was changed",
+                    "Copy is incomplete: expected $expected bytes, wrote $written",
                 )
             }
-            return destination.uri
         }
 
         /**
@@ -840,39 +973,29 @@ class FileOperationProviderImpl
             locationId: String,
             path: String,
         ): DocumentFile {
-            val treeUri =
-                storageLocationProvider.getTreeUriForLocation(locationId)
-                    ?: throw McpToolException.ActionFailed(
-                        "Could not retrieve tree URI for location '$locationId'",
-                    )
-            var current =
-                DocumentFile.fromTreeUri(context, treeUri)
-                    ?: throw McpToolException.ActionFailed(
-                        "Could not create DocumentFile from tree URI for location '$locationId'",
-                    )
+            var current = rootDocumentFor(locationId)
             for (segment in path.split("/").filter { it.isNotEmpty() }) {
-                val existing = current.findFile(segment)
-                current =
-                    when {
-                        existing != null && existing.isDirectory -> {
-                            existing
-                        }
-
-                        existing != null -> {
-                            throw McpToolException.ActionFailed(
-                                "Path component '$segment' is a file, not a directory",
-                            )
-                        }
-
-                        else -> {
-                            current.createDirectory(segment)
-                                ?: throw McpToolException.ActionFailed(
-                                    "Failed to create directory '$segment'",
-                                )
-                        }
-                    }
+                current = descendOrCreate(current, segment)
             }
             return current
+        }
+
+        /** The child directory [segment] of [parent], created if it does not exist yet. */
+        private fun descendOrCreate(
+            parent: DocumentFile,
+            segment: String,
+        ): DocumentFile {
+            val existing = findChild(parent, segment)
+            if (existing != null) {
+                if (!existing.isDirectory) {
+                    throw McpToolException.ActionFailed(
+                        "Path component '$segment' is a file, not a directory",
+                    )
+                }
+                return existing
+            }
+            return parent.createDirectory(segment)
+                ?: throw McpToolException.ActionFailed("Failed to create directory '$segment'")
         }
 
         /**
@@ -1001,17 +1124,7 @@ class FileOperationProviderImpl
         ): DocumentFile? {
             checkAuthorization(locationId)
 
-            val treeUri =
-                storageLocationProvider.getTreeUriForLocation(locationId)
-                    ?: throw McpToolException.ActionFailed(
-                        "Could not retrieve tree URI for location '$locationId'",
-                    )
-
-            val rootDocument =
-                DocumentFile.fromTreeUri(context, treeUri)
-                    ?: throw McpToolException.ActionFailed(
-                        "Could not create DocumentFile from tree URI for location '$locationId'",
-                    )
+            val rootDocument = rootDocumentFor(locationId)
 
             if (path.isEmpty()) {
                 return rootDocument
@@ -1021,7 +1134,7 @@ class FileOperationProviderImpl
             var current: DocumentFile? = rootDocument
             val segments = path.split("/").filter { it.isNotEmpty() }
             for (segment in segments) {
-                current = current?.findFile(segment)
+                current = current?.let { findChild(it, segment) }
                 if (current == null) {
                     return null
                 }
@@ -1041,17 +1154,7 @@ class FileOperationProviderImpl
             path: String,
             explicitMimeType: String? = null,
         ): DocumentFile {
-            val treeUri =
-                storageLocationProvider.getTreeUriForLocation(locationId)
-                    ?: throw McpToolException.ActionFailed(
-                        "Could not retrieve tree URI for location '$locationId'",
-                    )
-
-            val rootDocument =
-                DocumentFile.fromTreeUri(context, treeUri)
-                    ?: throw McpToolException.ActionFailed(
-                        "Could not create DocumentFile from tree URI for location '$locationId'",
-                    )
+            val rootDocument = rootDocumentFor(locationId)
 
             val segments = path.split("/").filter { it.isNotEmpty() }
             if (segments.isEmpty()) {
@@ -1064,7 +1167,7 @@ class FileOperationProviderImpl
             // Create parent directories as needed
             var current: DocumentFile = rootDocument
             for (dirName in parentSegments) {
-                val existing = current.findFile(dirName)
+                val existing = findChild(current, dirName)
                 current =
                     if (existing != null && existing.isDirectory) {
                         existing
@@ -1077,7 +1180,7 @@ class FileOperationProviderImpl
             }
 
             // Find or create the file
-            val existingFile = current.findFile(fileName)
+            val existingFile = findChild(current, fileName)
             if (existingFile != null && existingFile.isFile) {
                 return existingFile
             }

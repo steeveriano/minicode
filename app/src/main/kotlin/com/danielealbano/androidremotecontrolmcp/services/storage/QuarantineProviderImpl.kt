@@ -137,37 +137,8 @@ class QuarantineProviderImpl
                 val skipped = mutableListOf<SkippedEntry>()
 
                 for (entry in batch.entries) {
-                    // The manifest lives in storage other applications can write, so its
-                    // contents are untrusted input. moveFile validates too, but failing here
-                    // keeps the batch intact and names the entry that is wrong.
-                    val invalid =
-                        runCatching {
-                            BuiltinStorageLocation.validatePath(entry.originalPath)
-                            BuiltinStorageLocation.validatePath(entry.quarantinedName)
-                        }.exceptionOrNull()
-                    if (invalid != null) {
-                        skipped += SkippedEntry(entry, "invalid path in manifest")
-                        continue
-                    }
-                    if (fileOperationProvider.statPath(locationId, entry.originalPath) != null) {
-                        skipped += SkippedEntry(entry, "original path is occupied")
-                        continue
-                    }
-                    val outcome =
-                        runCatching {
-                            fileOperationProvider.moveFile(
-                                locationId = locationId,
-                                sourcePath = "${batchDirectory(batchId)}/${entry.quarantinedName}",
-                                destinationPath = entry.originalPath,
-                                overwrite = false,
-                                allowCopyFallback = false,
-                            )
-                        }
-                    if (outcome.isSuccess) {
-                        restored += entry
-                    } else {
-                        skipped += SkippedEntry(entry, outcome.exceptionOrNull()?.message.orEmpty())
-                    }
+                    val reason = restoreEntry(locationId, batchId, entry)
+                    if (reason == null) restored += entry else skipped += SkippedEntry(entry, reason)
                 }
 
                 if (skipped.isEmpty()) {
@@ -178,6 +149,49 @@ class QuarantineProviderImpl
                 }
                 RestoreOutcome(restored, skipped)
             }
+
+        /**
+         * Puts one entry back where it came from.
+         *
+         * @return null when the file was restored, otherwise why it was skipped.
+         */
+        private suspend fun restoreEntry(
+            locationId: String,
+            batchId: String,
+            entry: QuarantineEntry,
+        ): String? {
+            // The manifest lives in storage other applications can write, so its contents are
+            // untrusted input. moveFile validates too, but failing here keeps the batch intact
+            // and names the entry that is wrong.
+            val invalid =
+                runCatching {
+                    BuiltinStorageLocation.validatePath(entry.originalPath)
+                    BuiltinStorageLocation.validatePath(entry.quarantinedName)
+                }.exceptionOrNull()
+            return when {
+                invalid != null -> {
+                    "invalid path in manifest"
+                }
+
+                fileOperationProvider.statPath(locationId, entry.originalPath) != null -> {
+                    "original path is occupied"
+                }
+
+                else -> {
+                    runCatching {
+                        fileOperationProvider.moveFile(
+                            locationId = locationId,
+                            sourcePath = "${batchDirectory(batchId)}/${entry.quarantinedName}",
+                            destinationPath = entry.originalPath,
+                            overwrite = false,
+                            allowCopyFallback = false,
+                        )
+                        // A message is not guaranteed, and an empty reason must still read as a
+                        // failure, so the fold decides success rather than the message being blank.
+                    }.fold(onSuccess = { null }, onFailure = { it.message ?: "move rejected" })
+                }
+            }
+        }
 
         override suspend fun purge(
             locationId: String,

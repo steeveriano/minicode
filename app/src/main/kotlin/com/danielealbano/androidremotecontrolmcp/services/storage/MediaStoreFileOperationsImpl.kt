@@ -797,7 +797,11 @@ class MediaStoreFileOperationsImpl
 
                 val relativePath = buildRelativePathForListing(builtin, path)
                 val projection =
-                    arrayOf(MediaStore.MediaColumns.RELATIVE_PATH, MediaStore.MediaColumns.DISPLAY_NAME, MediaStore.MediaColumns.SIZE)
+                    arrayOf(
+                        MediaStore.MediaColumns.RELATIVE_PATH,
+                        MediaStore.MediaColumns.DISPLAY_NAME,
+                        MediaStore.MediaColumns.SIZE,
+                    )
                 // Totals accumulate per directory. ContentResolver.query does not honour SQL
                 // GROUP BY — the sortOrder injection trick is rejected from Android 11 on and
                 // minSdk here is 33 — so the aggregation is client-side, one query per
@@ -822,8 +826,9 @@ class MediaStoreFileOperationsImpl
                             val relIdx = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.RELATIVE_PATH)
                             val nameIdx = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DISPLAY_NAME)
                             val sizeIdx = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.SIZE)
+                            val locationRelativePath = buildRelativePathForListing(builtin, "")
                             while (cursor.moveToNext()) {
-                                val entryPath = entryRelativePath(cursor, relIdx, nameIdx, buildRelativePathForListing(builtin, ""))
+                                val entryPath = entryRelativePath(cursor, relIdx, nameIdx, locationRelativePath)
                                 val size = cursor.getLong(sizeIdx)
                                 // Credit the file to its own directory and to every ancestor,
                                 // so a shallow breakdown still reports complete totals.

@@ -9,7 +9,7 @@ import com.danielealbano.androidremotecontrolmcp.data.model.DiskUsageResult
  * All methods mirror [FileOperationProvider] but are scoped to built-in locations.
  * Path traversal protection is enforced on all operations.
  */
-interface MediaStoreFileOperations {
+interface MediaStoreFileOperations : MediaStoreDirectoryOperations {
     suspend fun listFiles(
         locationId: String,
         path: String,
@@ -66,7 +66,16 @@ interface MediaStoreFileOperations {
         path: String,
         mimeType: String,
     ): Uri
+}
 
+/**
+ * Directory-level MediaStore operations.
+ *
+ * Mirrors the split in [FileOperationProvider]: reshaping or measuring the tree is a separate
+ * responsibility from reading and writing one file's bytes. [MediaStoreFileOperations] extends
+ * this, so callers still inject one type.
+ */
+interface MediaStoreDirectoryOperations {
     suspend fun moveFile(
         locationId: String,
         sourcePath: String,
