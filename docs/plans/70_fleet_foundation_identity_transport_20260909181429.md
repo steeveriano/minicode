@@ -1626,3 +1626,53 @@ steps above stand in for them today, and that adding the harness is the first ta
 settings and states the project has no complex relational data, so a 91k-row index belongs in
 neither. If Room is preferred it is an architecture change requiring explicit approval; Task 2.3.2
 must not be implemented as Room without it.
+
+---
+
+# Review findings — `plan-reviewer`, 2026-09-09
+
+**Verdict: not executable as written.** The SQL is real code this time, but carries four runtime
+errors and one cross-tenant write. The prose-instead-of-code failure that sank plan 69 is
+reintroduced across 19 Kotlin/TS actions, and this plan's claim to carry no forward dependencies is
+false — there are four.
+
+## Verified independently before acceptance
+
+| Finding | Verified |
+|---|---|
+| SQL-C1 — `sum(max(...))` is an illegal nested aggregate; the outer query groups by `state` while selecting ungrouped columns; and `count(*)` over the inner join counts device rows, so every figure is inflated by device fan-out | CONFIRMED, all three |
+| SQL-C2 — `fleet_jobs` selects `j.created_at` from a `select *` over two tables that both define it | CONFIRMED — ambiguous column, the function always errors |
+| SQL-C3 — `on conflict do update` aborts the whole batch when one payload carries the same `(media_id, device_id, location_id, path)` twice | CONFIRMED |
+| SQL-C4 — the `raise exception` after the burn `update` rolls that update back, so the code is not consumed and Task 1.1's DoD is unachievable | CONFIRMED |
+| SEC-C1 — `fleet_revoke_device`'s second update is not owner-scoped: any viewer can consume another viewer's outstanding pairing codes | CONFIRMED — a cross-tenant write, introduced while closing plan 69's C15 |
+| SEC-C2 — the `readStreaming` snippet omits `BuiltinStorageLocation.validatePath`, `checkAuthorization` and the builtin delegation branch that `statPath` performs, while its `locationId`/`path` come from panel-supplied job params that `fleet_enqueue_job` does not validate | CONFIRMED against `FileOperationProviderImpl.statPath` — an arbitrary-file-read primitive reachable with the MCP server stopped |
+| S-C9 — "the Ktor `HttpClient` already provided by Hilt" does not exist | CONFIRMED — `AppModule` provides none; `EventDispatcherImpl`, `GithubReleaseChecker` and `PrivacyModelDownloader` each construct their own |
+| CON-C1 — `policy_version` / `engine_version` columns are created and never written | CONFIRMED — the invariant table claims they are recorded; the insert omits them |
+| CON-C2 — the insert reads `mediaType`, which `HashedFile` does not carry | CONFIRMED — the column would always be null |
+| S-C1..S-C4 — four forward dependencies (`FleetClient` on `FleetJob`/`HashedFile`, the pairing ViewModel on `FleetSyncScheduler`, Task 1.7's web tests on Task 3.2's files and vitest config, `FleetSyncWorker` on `TunnelManager.publicUrl`) | CONFIRMED |
+
+All remaining CRITICAL, WARNING and INFO findings are accepted: S-C5..S-C8, S-C10, S-C11, W1–W36,
+I1–I17.
+
+## What this says about the method, not the document
+
+Plan 69 failed because interfaces were asserted from memory. Plan 70 states, in its own header, that
+every interface was checked against the source first — and then asserts a Hilt `HttpClient` binding
+that does not exist, and writes a file-read path that drops the three authorization steps the
+function it claims to mirror actually performs. Verifying part of a document and claiming the whole
+was verified is worse than not claiming it.
+
+The corrective is not a third rewrite at this size. A plan is a document nothing executes, so
+nothing catches its errors except a reviewer reading prose. The next slice is scoped to what can be
+compiled and tested — user story 1 alone, identity and pairing — so the build and the test suite
+are the verifier.
+
+## Corrections from plan 69 that did hold
+
+`for update skip locked` after `limit`; `gen_random_bytes` for pairing codes; the `revoked_at is
+null` guard on re-pairing; the server-side payload cap; no half-built destructive gate;
+`getAllLocations()`; the publishable key on `FleetIdentity`; WorkManager not re-added; the hash
+index out of the settings DataStore; job kinds as a check constraint; leases outlasting job budgets
+with fenced completion; JUnit 5 `@TempDir`. The invariant that nothing computes
+`safe_to_purge_staging` or `safe_to_release_mobile` holds — the only occurrences in the document are
+the two that promise their absence.
