@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
+} from 'react';
 import {
   diskUsage,
   listFiles,
@@ -10,6 +18,8 @@ import {
 import { formatBytes, formatCount } from '../snapshot';
 import { FileIcon, FolderIcon } from '../components/icons';
 import { Preview } from '../components/Preview';
+import { Thumb } from '../components/Thumb';
+import { thumbSpend } from '../api/thumbs';
 import { ProposeBar } from '../components/ProposeBar';
 import { describeType } from '../components/fileType';
 import { GROUP_LABELS, groupBytes, groupEntries, type GroupBy } from '../components/grouping';
@@ -18,8 +28,14 @@ import { GROUP_LABELS, groupBytes, groupEntries, type GroupBy } from '../compone
 const PAGE = 200;
 
 type Column = 'name' | 'modified' | 'type' | 'size';
+type View = 'details' | 'tiles';
 type Direction = 'asc' | 'desc';
 type Place = { locationId: string; path: string };
+
+const VIEWS: { id: View; label: string; title: string }[] = [
+  { id: 'details', label: 'Detalles', title: 'Lista con columnas' },
+  { id: 'tiles', label: 'Mosaicos', title: 'Cuadrícula con miniaturas' },
+];
 
 const COLUMNS: { id: Column; label: string; numeric: boolean }[] = [
   { id: 'name', label: 'Nombre', numeric: false },
@@ -35,6 +51,7 @@ export function BrowserScreen({ slug, onProposed }: { slug: string; onProposed: 
   const [truncated, setTruncated] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [view, setView] = useState<View>('details');
   const [column, setColumn] = useState<Column>('name');
   const [direction, setDirection] = useState<Direction>('asc');
   const [query, setQuery] = useState('');
@@ -239,6 +256,15 @@ export function BrowserScreen({ slug, onProposed }: { slug: string; onProposed: 
 
   const groups = useMemo(() => groupEntries(rows, groupBy), [rows, groupBy]);
 
+  // What filling the thumbnail cache has cost the tunnel. Polled rather than pushed: the counter
+  // lives outside React, and a figure nobody can see is a budget nobody can govern.
+  const [spend, setSpend] = useState(thumbSpend());
+  useEffect(() => {
+    if (view !== 'tiles') return;
+    const timer = setInterval(() => setSpend(thumbSpend()), 1500);
+    return () => clearInterval(timer);
+  }, [view]);
+
   function toggleGroup(key: string) {
     setCollapsed((current) => {
       const next = new Set(current);
@@ -254,6 +280,97 @@ export function BrowserScreen({ slug, onProposed }: { slug: string; onProposed: 
       setColumn(next);
       setDirection(next === 'size' || next === 'modified' ? 'desc' : 'asc');
     }
+  }
+
+  /** The gestures every entry answers to, whether it is drawn as a row or as a tile. */
+  function gestures(entry: FileEntry) {
+    const open = () => {
+      if (entry.is_directory && place) go({ ...place, path: join(place.path, entry.name) });
+    };
+    return {
+      tabIndex: 0,
+      onClick: (event: ReactMouseEvent) => pick(entry, event),
+      onDoubleClick: open,
+      onKeyDown: (event: ReactKeyboardEvent) => {
+        if (event.key === 'Enter') open();
+        if (event.key === ' ') {
+          event.preventDefault();
+          pick(entry, { ctrlKey: true, metaKey: false, shiftKey: false });
+        }
+      },
+    };
+  }
+
+  function tone(entry: FileEntry, base: string): string {
+    if (checked.has(entry.name)) return `${base} checked`;
+    if (selected?.name === entry.name && selected.path === entry.path) return `${base} selected`;
+    return base;
+  }
+
+  /** The checkbox, identical in both views — clicking it must select without also navigating. */
+  function tick(entry: FileEntry) {
+    return (
+      <input
+        type="checkbox"
+        checked={checked.has(entry.name)}
+        onClick={(event) => event.stopPropagation()}
+        onChange={(event) =>
+          pick(entry, {
+            ctrlKey: true,
+            metaKey: false,
+            shiftKey: event.nativeEvent instanceof MouseEvent && event.nativeEvent.shiftKey,
+          })
+        }
+        aria-label={`Seleccionar ${entry.name}`}
+      />
+    );
+  }
+
+  function renderRow(entry: FileEntry) {
+    const measured = entry.is_directory ? usageByName.get(entry.name) : undefined;
+    return (
+      <div key={`${entry.path}:${entry.name}`} role="row" className={tone(entry, 'ex-row')} {...gestures(entry)}>
+        <span className="ex-cell check" role="cell">
+          {tick(entry)}
+        </span>
+        <span className="ex-cell name" role="cell">
+          {entry.is_directory ? <FolderIcon /> : <FileIcon name={entry.name} />}
+          <span className="ex-name">{entry.name}</span>
+        </span>
+        <span className="ex-cell" role="cell">
+          {formatDateTime(entry.last_modified)}
+        </span>
+        <span className="ex-cell" role="cell">
+          {describeType(entry)}
+        </span>
+        <span className="ex-cell num mono" role="cell">
+          {entry.is_directory ? (measured ? formatBytes(measured.totalBytes) : '') : formatBytes(entry.size)}
+        </span>
+      </div>
+    );
+  }
+
+  function renderTile(entry: FileEntry) {
+    if (!place) return null;
+    return (
+      <div key={`${entry.path}:${entry.name}`} className={tone(entry, 'tile')} {...gestures(entry)}>
+        <span className="tile-check">{tick(entry)}</span>
+        <Thumb
+          slug={slug}
+          locationId={place.locationId}
+          relativePath={join(place.path, entry.name)}
+          entry={entry}
+        />
+        <span className="tile-name" title={entry.name}>
+          {entry.name}
+        </span>
+        <span className="tile-meta mono">
+          {entry.is_directory
+            ? (usageByName.get(entry.name) ? formatBytes(usageByName.get(entry.name)?.totalBytes ?? 0) : 'Carpeta')
+            : formatBytes(entry.size)}
+        </span>
+      </div>
+    );
   }
 
   const parent = place && place.path !== '' ? place.path.split('/').slice(0, -1).join('/') : null;
@@ -328,6 +445,21 @@ export function BrowserScreen({ slug, onProposed }: { slug: string; onProposed: 
           aria-label="Buscar en esta carpeta"
         />
 
+        <div className="ex-views" role="group" aria-label="Vista">
+          {VIEWS.map((entry) => (
+            <button
+              key={entry.id}
+              type="button"
+              className={view === entry.id ? 'ex-view current' : 'ex-view'}
+              aria-pressed={view === entry.id}
+              title={entry.title}
+              onClick={() => setView(entry.id)}
+            >
+              {entry.label}
+            </button>
+          ))}
+        </div>
+
         <label className="ex-group">
           <span>Agrupar</span>
           <select value={groupBy} onChange={(e) => setGroupBy(e.target.value as GroupBy)}>
@@ -369,7 +501,7 @@ export function BrowserScreen({ slug, onProposed }: { slug: string; onProposed: 
           {error && <p className="error ex-error">{error}</p>}
 
           <div className="ex-grid" role="table" aria-label="Contenido de la carpeta">
-            <div className="ex-head" role="row">
+            <div className="ex-head" role="row" hidden={view === 'tiles'}>
               <span className="ex-th check">
                 <input
                   type="checkbox"
@@ -431,66 +563,11 @@ export function BrowserScreen({ slug, onProposed }: { slug: string; onProposed: 
                       </button>
                     )}
                     {!collapsed.has(group.key) &&
-                      group.entries.map((entry) => {
-                  const measured = entry.is_directory ? usageByName.get(entry.name) : undefined;
-                  const isSelected = selected?.name === entry.name && selected.path === entry.path;
-                  return (
-                    <div
-                      key={`${entry.path}:${entry.name}`}
-                      role="row"
-                      className={
-                        checked.has(entry.name)
-                          ? 'ex-row checked'
-                          : isSelected
-                            ? 'ex-row selected'
-                            : 'ex-row'
-                      }
-                      tabIndex={0}
-                      onClick={(e) => pick(entry, e)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && entry.is_directory && place) {
-                          go({ ...place, path: join(place.path, entry.name) });
-                        }
-                        if (e.key === ' ') {
-                          e.preventDefault();
-                          pick(entry, { ctrlKey: true, metaKey: false, shiftKey: false });
-                        }
-                      }}
-                      onDoubleClick={() =>
-                        entry.is_directory && place && go({ ...place, path: join(place.path, entry.name) })
-                      }
-                    >
-                      <span className="ex-cell check" role="cell">
-                        <input
-                          type="checkbox"
-                          checked={checked.has(entry.name)}
-                          onClick={(e) => e.stopPropagation()}
-                          onChange={(e) =>
-                            pick(entry, { ctrlKey: true, metaKey: false, shiftKey: e.nativeEvent instanceof MouseEvent && e.nativeEvent.shiftKey })
-                          }
-                          aria-label={`Seleccionar ${entry.name}`}
-                        />
-                      </span>
-                      <span className="ex-cell name" role="cell">
-                        {entry.is_directory ? <FolderIcon /> : <FileIcon name={entry.name} />}
-                        <span className="ex-name">{entry.name}</span>
-                      </span>
-                      <span className="ex-cell" role="cell">
-                        {formatDateTime(entry.last_modified)}
-                      </span>
-                      <span className="ex-cell" role="cell">
-                        {describeType(entry)}
-                      </span>
-                      <span className="ex-cell num mono" role="cell">
-                        {entry.is_directory
-                          ? measured
-                            ? formatBytes(measured.totalBytes)
-                            : ''
-                          : formatBytes(entry.size)}
-                      </span>
-                    </div>
-                      );
-                    })}
+                      (view === 'tiles' ? (
+                        <div className="tiles">{group.entries.map(renderTile)}</div>
+                      ) : (
+                        group.entries.map(renderRow)
+                      ))}
                   </div>
                 ))}
             </div>
@@ -577,6 +654,11 @@ export function BrowserScreen({ slug, onProposed }: { slug: string; onProposed: 
           {counts.files > 0 && ` · ${formatCount(counts.files)} archivos, ${formatBytes(counts.bytes)}`}
         </span>
         <span className="ex-status-note">
+          {view === 'tiles' && spend.generated > 0 && (
+            <span className="ex-spend mono">
+              {formatCount(spend.generated)} miniaturas · {formatBytes(spend.bytes)} del túnel ·{' '}
+            </span>
+          )}
           {truncated
             ? 'El dispositivo entrega hasta 200 elementos por carpeta'
             : usage

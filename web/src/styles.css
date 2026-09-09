@@ -1550,3 +1550,140 @@ button.linklike:hover {
 .accent {
   color: var(--accent);
 }
+
+/* ------------------------------------------------------- tiles & thumbnails */
+
+.ex-views {
+  display: flex;
+  flex: none;
+  border: 1px solid var(--outline-hi);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.ex-view {
+  min-height: 34px;
+  padding: 6px 12px;
+  background: var(--panel);
+  border: 0;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.ex-view + .ex-view {
+  border-left: 1px solid var(--outline-hi);
+}
+
+.ex-view:hover {
+  color: var(--ink);
+}
+
+.ex-view.current {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.tiles {
+  display: grid;
+  /* The track floor is the stored thumbnail's longest edge, so a picture is never scaled up. */
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 10px;
+  padding: 10px 12px 14px;
+}
+
+.tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: var(--panel-2);
+  cursor: default;
+}
+
+.tile:hover {
+  border-color: var(--outline-hi);
+}
+
+.tile.selected {
+  border-color: var(--accent);
+}
+
+.tile.checked {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--panel-2));
+}
+
+.tile:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.tile-check {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 1;
+}
+
+.tile-img,
+.tile-blank {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 4px;
+  background: var(--surface);
+  object-fit: cover;
+}
+
+.tile-spinner {
+  position: absolute;
+  right: 12px;
+  bottom: 46px;
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--outline-hi);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: tile-turn 0.9s linear infinite;
+}
+
+@keyframes tile-turn {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tile-spinner {
+    animation: none;
+  }
+}
+
+.tile-name {
+  overflow: hidden;
+  font-size: 12.5px;
+  line-height: 1.3;
+  color: var(--ink);
+  /* Two lines, then an ellipsis: a photo's name is long and uninformative past that. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  word-break: break-word;
+}
+
+.tile-meta {
+  font-size: 11px;
+  color: var(--ink-2);
+}
+
+.ex-spend {
+  color: var(--ink-2);
+}
