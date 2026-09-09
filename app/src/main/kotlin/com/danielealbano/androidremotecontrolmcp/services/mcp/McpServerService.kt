@@ -38,6 +38,7 @@ import com.danielealbano.androidremotecontrolmcp.mcp.tools.registerIntentTools
 import com.danielealbano.androidremotecontrolmcp.mcp.tools.registerLocationTools
 import com.danielealbano.androidremotecontrolmcp.mcp.tools.registerNodeActionTools
 import com.danielealbano.androidremotecontrolmcp.mcp.tools.registerNotificationTools
+import com.danielealbano.androidremotecontrolmcp.mcp.tools.registerQuarantineTools
 import com.danielealbano.androidremotecontrolmcp.mcp.tools.registerScreenIntrospectionTools
 import com.danielealbano.androidremotecontrolmcp.mcp.tools.registerSharingTools
 import com.danielealbano.androidremotecontrolmcp.mcp.tools.registerSystemActionTools
@@ -73,6 +74,7 @@ import com.danielealbano.androidremotecontrolmcp.services.screencapture.Screensh
 import com.danielealbano.androidremotecontrolmcp.services.sharing.EphemeralFileLinkService
 import com.danielealbano.androidremotecontrolmcp.services.sharing.SharedContentInbox
 import com.danielealbano.androidremotecontrolmcp.services.storage.FileOperationProvider
+import com.danielealbano.androidremotecontrolmcp.services.storage.QuarantineProvider
 import com.danielealbano.androidremotecontrolmcp.services.storage.StorageLocationProvider
 import com.danielealbano.androidremotecontrolmcp.services.tunnel.TunnelManager
 import com.danielealbano.androidremotecontrolmcp.ui.MainActivity
@@ -134,6 +136,8 @@ class McpServerService : Service() {
     @Inject lateinit var tunnelManager: TunnelManager
 
     @Inject lateinit var storageLocationProvider: StorageLocationProvider
+
+    @Inject lateinit var quarantineProvider: QuarantineProvider
 
     @Inject lateinit var fileOperationProvider: FileOperationProvider
 
@@ -456,6 +460,7 @@ class McpServerService : Service() {
             )
         registerAccessibilityToolBundle(registrar, toolNamePrefix, perms)
         registerFileTools(registrar, storageLocationProvider, fileOperationProvider, toolNamePrefix, perms)
+        registerQuarantineTools(registrar, quarantineProvider, toolNamePrefix, perms)
         registerAppManagementTools(registrar, appManager, privacyToolGate, toolNamePrefix, perms)
         registerCameraTools(registrar, cameraProvider, fileOperationProvider, toolNamePrefix, perms)
         registerIntentTools(registrar, intentDispatcher, toolNamePrefix, perms)

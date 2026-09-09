@@ -141,6 +141,17 @@ private val ALL_TOOL_CATEGORIES: List<ToolCategory> =
                 ToolEntry("file_replace", "File Replace"),
                 ToolEntry("download_from_url", "Download from URL"),
                 ToolEntry("delete_file", "Delete File"),
+                ToolEntry("move_file", "Move File"),
+                ToolEntry("disk_usage", "Disk Usage"),
+            ),
+        ),
+        ToolCategory(
+            "Quarantine",
+            listOf(
+                ToolEntry("quarantine_files", "Quarantine Files"),
+                ToolEntry("list_quarantine_batches", "List Quarantine Batches"),
+                ToolEntry("restore_quarantine_batch", "Restore Quarantine Batch"),
+                ToolEntry("purge_quarantine_batch", "Purge Quarantine Batch"),
             ),
         ),
         ToolCategory(

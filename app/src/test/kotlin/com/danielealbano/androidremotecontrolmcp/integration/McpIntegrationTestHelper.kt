@@ -32,6 +32,7 @@ import com.danielealbano.androidremotecontrolmcp.mcp.tools.registerIntentTools
 import com.danielealbano.androidremotecontrolmcp.mcp.tools.registerLocationTools
 import com.danielealbano.androidremotecontrolmcp.mcp.tools.registerNodeActionTools
 import com.danielealbano.androidremotecontrolmcp.mcp.tools.registerNotificationTools
+import com.danielealbano.androidremotecontrolmcp.mcp.tools.registerQuarantineTools
 import com.danielealbano.androidremotecontrolmcp.mcp.tools.registerScreenIntrospectionTools
 import com.danielealbano.androidremotecontrolmcp.mcp.tools.registerSharingTools
 import com.danielealbano.androidremotecontrolmcp.mcp.tools.registerSystemActionTools
@@ -81,6 +82,7 @@ import com.danielealbano.androidremotecontrolmcp.services.screencapture.Screensh
 import com.danielealbano.androidremotecontrolmcp.services.sharing.EphemeralFileLinkService
 import com.danielealbano.androidremotecontrolmcp.services.sharing.SharedContentInbox
 import com.danielealbano.androidremotecontrolmcp.services.storage.FileOperationProvider
+import com.danielealbano.androidremotecontrolmcp.services.storage.QuarantineProvider
 import com.danielealbano.androidremotecontrolmcp.services.storage.StorageLocationProvider
 import com.danielealbano.androidremotecontrolmcp.testutil.RecordingServerLogRepository
 import io.ktor.serialization.kotlinx.json.json
@@ -207,6 +209,7 @@ object McpIntegrationTestHelper {
             elementFinder = mockk(relaxed = true),
             storageLocationProvider = mockk(relaxed = true),
             fileOperationProvider = mockk(relaxed = true),
+            quarantineProvider = mockk(relaxed = true),
             appManager = mockk(relaxed = true),
             typeInputController = mockk(relaxed = true),
             screenshotAnnotator = mockk(relaxed = true),
@@ -333,6 +336,7 @@ object McpIntegrationTestHelper {
         perms: ToolPermissionsConfig,
     ) {
         registerFileTools(registrar, deps.storageLocationProvider, deps.fileOperationProvider, toolNamePrefix, perms)
+        registerQuarantineTools(registrar, deps.quarantineProvider, toolNamePrefix, perms)
         registerAppManagementTools(registrar, deps.appManager, deps.privacyToolGate, toolNamePrefix, perms)
         registerCameraTools(registrar, deps.cameraProvider, deps.fileOperationProvider, toolNamePrefix, perms)
         registerIntentTools(registrar, deps.intentDispatcher, toolNamePrefix, perms)
@@ -598,6 +602,7 @@ data class MockDependencies(
     val elementFinder: ElementFinder,
     val storageLocationProvider: StorageLocationProvider,
     val fileOperationProvider: FileOperationProvider,
+    val quarantineProvider: QuarantineProvider,
     val appManager: AppManager,
     val typeInputController: TypeInputController,
     val screenshotAnnotator: ScreenshotAnnotator,

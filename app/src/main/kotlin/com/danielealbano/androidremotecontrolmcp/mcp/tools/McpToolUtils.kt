@@ -6,6 +6,7 @@ import io.modelcontextprotocol.kotlin.sdk.types.CallToolResult
 import io.modelcontextprotocol.kotlin.sdk.types.ContentBlock
 import io.modelcontextprotocol.kotlin.sdk.types.ImageContent
 import io.modelcontextprotocol.kotlin.sdk.types.TextContent
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -295,6 +296,7 @@ internal object McpToolUtils {
      * @throws McpToolException.InvalidParams if the parameter is missing, not a primitive,
      *         or is a non-string primitive (number, boolean).
      */
+
     @Suppress("ThrowsCount")
     fun requireString(
         params: JsonObject?,
@@ -312,6 +314,39 @@ internal object McpToolUtils {
             )
         }
         return primitive.content
+    }
+
+    /**
+     * Extracts a required array-of-strings value from [params].
+     *
+     * @param maxSize Upper bound on the array; an unbounded array would let one request perform
+     *   an unbounded amount of work.
+     * @throws McpToolException.InvalidParams if the parameter is missing, is not an array, is
+     *         empty, exceeds [maxSize], or contains a non-string element.
+     */
+    @Suppress("ThrowsCount")
+    fun requireStringArray(
+        params: JsonObject?,
+        name: String,
+        maxSize: Int,
+    ): List<String> {
+        val array =
+            params?.get(name) as? JsonArray
+                ?: throw McpToolException.InvalidParams("Parameter '$name' must be an array of strings")
+        if (array.isEmpty()) {
+            throw McpToolException.InvalidParams("Parameter '$name' must not be empty")
+        }
+        if (array.size > maxSize) {
+            throw McpToolException.InvalidParams(
+                "Parameter '$name' accepts at most $maxSize entries, got ${array.size}",
+            )
+        }
+        return array.map { element ->
+            (element as? JsonPrimitive)?.takeIf { it.isString }?.content
+                ?: throw McpToolException.InvalidParams(
+                    "Parameter '$name' must contain only strings",
+                )
+        }
     }
 
     /**

@@ -2,6 +2,7 @@
 
 package com.danielealbano.androidremotecontrolmcp.mcp.tools
 
+import com.danielealbano.androidremotecontrolmcp.data.model.DiskUsageNode
 import com.danielealbano.androidremotecontrolmcp.data.model.ToolPermissionsConfig
 import com.danielealbano.androidremotecontrolmcp.mcp.McpToolException
 import com.danielealbano.androidremotecontrolmcp.services.storage.FileOperationProvider
@@ -721,6 +722,227 @@ class DeleteFileHandler
     }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// move_file
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * MCP tool handler for `move_file`.
+ *
+ * Relocates a file within one storage location.
+ *
+ * **Input**: `{ "location_id": "...", "source_path": "...", "destination_path": "...",
+ *   "overwrite": false, "allow_copy_fallback": false }`
+ * **Output**: the path reached and the mechanism used.
+ */
+class MoveFileHandler
+    @Inject
+    constructor(
+        private val fileOperationProvider: FileOperationProvider,
+    ) {
+        @Suppress("TooGenericExceptionCaught", "SwallowedException")
+        suspend fun execute(arguments: JsonObject?): CallToolResult =
+            try {
+                val locationId = McpToolUtils.requireString(arguments, "location_id")
+                val sourcePath = McpToolUtils.requireString(arguments, "source_path")
+                val destinationPath = McpToolUtils.requireString(arguments, "destination_path")
+                val overwrite = McpToolUtils.optionalBoolean(arguments, "overwrite", false)
+                val allowCopyFallback =
+                    McpToolUtils.optionalBoolean(arguments, "allow_copy_fallback", false)
+
+                val result =
+                    fileOperationProvider.moveFile(
+                        locationId,
+                        sourcePath,
+                        destinationPath,
+                        overwrite,
+                        allowCopyFallback,
+                    )
+
+                // The destination is echoed from the caller's own request, so nothing here
+                // originates from the device.
+                McpToolUtils.textResult(
+                    "Moved to ${result.destinationPath} (${result.sizeBytes} bytes, " +
+                        "${result.mechanism.name.lowercase()})",
+                )
+            } catch (e: McpToolException) {
+                throw e
+            } catch (e: Exception) {
+                throw McpToolException.ActionFailed(
+                    "Failed to move file: ${e.message ?: "Unknown error"}",
+                )
+            }
+
+        fun register(
+            registrar: LoggedToolRegistrar,
+            toolNamePrefix: String,
+        ) {
+            registrar.addTool(
+                toolName = TOOL_NAME,
+                name = "$toolNamePrefix$TOOL_NAME",
+                description =
+                    "Move a file to a different path within the same storage location. Requires " +
+                        "the location to allow both write and delete, because the file leaves " +
+                        "the path it occupied. Fails if the destination is a directory. When the " +
+                        "storage provider supports neither move nor rename the call fails unless " +
+                        "allow_copy_fallback is set, since copying needs free space equal to the " +
+                        "file. Not supported for built-in locations.",
+                inputSchema =
+                    ToolSchema(
+                        properties =
+                            buildJsonObject {
+                                putJsonObject("location_id") {
+                                    put("type", "string")
+                                    put("description", "The authorized storage location identifier")
+                                }
+                                putJsonObject("source_path") {
+                                    put("type", "string")
+                                    put("description", "Relative path of the file to move")
+                                }
+                                putJsonObject("destination_path") {
+                                    put("type", "string")
+                                    put("description", "Relative destination path; parent directories are created")
+                                }
+                                putJsonObject("overwrite") {
+                                    put("type", "boolean")
+                                    put(
+                                        "description",
+                                        "Replace an existing destination file (default false). " +
+                                            "A destination directory is never replaced.",
+                                    )
+                                }
+                                putJsonObject("allow_copy_fallback") {
+                                    put("type", "boolean")
+                                    put(
+                                        "description",
+                                        "Permit copy-then-delete when the provider cannot move " +
+                                            "or rename (default false). Needs free space equal " +
+                                            "to the file.",
+                                    )
+                                }
+                            },
+                        required = listOf("location_id", "source_path", "destination_path"),
+                    ),
+            ) { request -> execute(request.arguments) }
+        }
+
+        companion object {
+            const val TOOL_NAME = "move_file"
+        }
+    }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// disk_usage
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * MCP tool handler for `disk_usage`.
+ *
+ * Aggregates the size of every file below a path in one call. `list_files` is flat and capped at
+ * [FileOperationProvider.MAX_LIST_ENTRIES] entries, so summarising an archive through it costs
+ * one call per directory page.
+ */
+class DiskUsageHandler
+    @Inject
+    constructor(
+        private val fileOperationProvider: FileOperationProvider,
+    ) {
+        @Suppress("TooGenericExceptionCaught", "SwallowedException")
+        suspend fun execute(arguments: JsonObject?): CallToolResult =
+            try {
+                val locationId = McpToolUtils.requireString(arguments, "location_id")
+                val path = McpToolUtils.optionalString(arguments, "path", "")
+                val maxDepth =
+                    McpToolUtils
+                        .optionalInt(arguments, "max_depth", DEFAULT_DEPTH)
+                        .coerceIn(0, FileOperationProvider.MAX_USAGE_DEPTH)
+
+                val result = fileOperationProvider.diskUsage(locationId, path, maxDepth)
+
+                val summary =
+                    buildString {
+                        // A partial total read as a whole one would send a caller deleting the
+                        // wrong things, so say so before the numbers.
+                        if (result.truncated) {
+                            appendLine(
+                                "WARNING: traversal stopped at the node budget; these totals " +
+                                    "under-report the real usage.",
+                            )
+                        }
+                        if (!result.complete) {
+                            appendLine(
+                                "WARNING: this location only exposes files this app owns, so " +
+                                    "these totals cover part of its contents.",
+                            )
+                        }
+                        appendUsageNode(result.root, 0)
+                    }
+                // Directory names originate from the device.
+                McpToolUtils.untrustedTextResult(summary)
+            } catch (e: McpToolException) {
+                throw e
+            } catch (e: Exception) {
+                throw McpToolException.ActionFailed(
+                    "Failed to compute disk usage: ${e.message ?: "Unknown error"}",
+                )
+            }
+
+        private fun StringBuilder.appendUsageNode(
+            node: DiskUsageNode,
+            depth: Int,
+        ) {
+            val indent = "  ".repeat(depth)
+            val label = node.path.ifEmpty { "/" }
+            appendLine("$indent$label — ${node.totalBytes} bytes, ${node.fileCount} file(s)")
+            node.children
+                .sortedByDescending { it.totalBytes }
+                .forEach { appendUsageNode(it, depth + 1) }
+        }
+
+        fun register(
+            registrar: LoggedToolRegistrar,
+            toolNamePrefix: String,
+        ) {
+            registrar.addTool(
+                toolName = TOOL_NAME,
+                name = "$toolNamePrefix$TOOL_NAME",
+                description =
+                    "Aggregate the total size and file count below a path, broken down per " +
+                        "directory. Totals always cover the whole subtree; max_depth limits only " +
+                        "how deep the breakdown goes. A large archive can take minutes on the " +
+                        "first call.",
+                inputSchema =
+                    ToolSchema(
+                        properties =
+                            buildJsonObject {
+                                putJsonObject("location_id") {
+                                    put("type", "string")
+                                    put("description", "The authorized storage location identifier")
+                                }
+                                putJsonObject("path") {
+                                    put("type", "string")
+                                    put("description", "Relative path to aggregate; empty for the location root")
+                                }
+                                putJsonObject("max_depth") {
+                                    put("type", "integer")
+                                    put(
+                                        "description",
+                                        "Levels of sub-directory to itemize (default " +
+                                            "$DEFAULT_DEPTH, max ${FileOperationProvider.MAX_USAGE_DEPTH})",
+                                    )
+                                }
+                            },
+                        required = listOf("location_id"),
+                    ),
+            ) { request -> execute(request.arguments) }
+        }
+
+        companion object {
+            const val TOOL_NAME = "disk_usage"
+            private const val DEFAULT_DEPTH = 2
+        }
+    }
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Registration function
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -756,6 +978,12 @@ fun registerFileTools(
     }
     if (perms.isToolEnabled(DownloadFromUrlHandler.TOOL_NAME)) {
         DownloadFromUrlHandler(fileOperationProvider).register(registrar, toolNamePrefix)
+    }
+    if (perms.isToolEnabled(MoveFileHandler.TOOL_NAME)) {
+        MoveFileHandler(fileOperationProvider).register(registrar, toolNamePrefix)
+    }
+    if (perms.isToolEnabled(DiskUsageHandler.TOOL_NAME)) {
+        DiskUsageHandler(fileOperationProvider).register(registrar, toolNamePrefix)
     }
     if (perms.isToolEnabled(DeleteFileHandler.TOOL_NAME)) {
         DeleteFileHandler(fileOperationProvider).register(registrar, toolNamePrefix)
