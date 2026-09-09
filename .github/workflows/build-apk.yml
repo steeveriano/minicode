@@ -60,13 +60,11 @@ jobs:
           key: ngrok-android-v2-${{ runner.os }}-${{ hashFiles('.gitmodules', 'vendor/ngrok-java/**/*.toml', 'vendor/ngrok-java/**/pom.xml', 'vendor/ngrok-java/ngrok-java-native/src/**') }}
 
       - name: Set up Go
-        if: steps.cache-cloudflared.outputs.cache-hit != 'true'
         uses: actions/setup-go@v7
         with:
           go-version: '1.25.6'
 
       - name: Set up Rust
-        if: steps.cache-ngrok-android.outputs.cache-hit != 'true'
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-linux-android,x86_64-linux-android
@@ -99,6 +97,29 @@ jobs:
         with:
           path: .dbip-cache
           key: dbip-csv-${{ steps.dbip-month.outputs.month }}
+
+      - name: Cache ngrok-java host native build
+        id: cache-ngrok-host
+        uses: actions/cache@v6
+        with:
+          path: |
+            vendor/ngrok-java/ngrok-java-native/target/ngrok-java-native-host.jar
+            vendor/ngrok-java/ngrok-java-native/target/release/libngrok_java.so
+          key: ngrok-host-${{ runner.os }}-${{ hashFiles('.gitmodules', 'vendor/ngrok-java/**/*.toml', 'vendor/ngrok-java/**/pom.xml', 'vendor/ngrok-java/ngrok-java-native/src/**') }}
+
+      # The unit tests run on the JVM and load the host build of the ngrok native library, which
+      # app/build.gradle.kts declares as testRuntimeOnly. The Android cross-compile above does not
+      # produce it, so without this the test task cannot even resolve its classpath.
+      - name: Build ngrok-java host native library (for JVM tests)
+        if: steps.cache-ngrok-host.outputs.cache-hit != 'true'
+        run: |
+          cd vendor/ngrok-java
+          mvn compile -pl ngrok-java-native --also-make --global-toolchains toolchains.xml -q
+          (cd ngrok-java-native && cargo build --release)
+          (cd ngrok-java-native/target/release && jar cf ../ngrok-java-native-host.jar $(ls libngrok_java.so libngrok_java.dylib 2>/dev/null))
+        env:
+          JAVA_11_HOME: ${{ env.JAVA_HOME }}
+          JAVA_17_HOME: ${{ env.JAVA_HOME }}
 
       # Runs before the APK so a behavioural regression fails the job in the cheap step rather
       # than after a full assemble.
