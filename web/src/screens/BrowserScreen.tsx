@@ -501,7 +501,8 @@ export function BrowserScreen({ slug, onProposed }: { slug: string; onProposed: 
           {error && <p className="error ex-error">{error}</p>}
 
           <div className="ex-grid" role="table" aria-label="Contenido de la carpeta">
-            <div className="ex-head" role="row" hidden={view === 'tiles'}>
+            {view === 'details' && (
+            <div className="ex-head" role="row">
               <span className="ex-th check">
                 <input
                   type="checkbox"
@@ -532,6 +533,7 @@ export function BrowserScreen({ slug, onProposed }: { slug: string; onProposed: 
                 </button>
               ))}
             </div>
+            )}
 
             <div className="ex-rows">
               {busy && <p className="ex-status">Leyendo del dispositivo…</p>}
