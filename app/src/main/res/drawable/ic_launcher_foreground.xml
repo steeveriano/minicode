@@ -1,15 +1,48 @@
+<!--
+  Launcher foreground: a card lifting out of a phone.
+
+  What this build does is move files off a device without destroying them, so the icon shows
+  exactly that — something leaving the phone and held, not thrown away.
+
+  Drawn as a vector rather than raster art so it stays sharp at every density, and kept inside the
+  adaptive-icon safe zone (roughly a 72dp circle centred in the 108dp viewport) because launchers
+  mask the outer band and anything there can be cropped.
+
+  Legibility at 48px drove every choice: two solid forms, thick edges, no gradients, no fine
+  detail. The card is separated from the phone by a background-coloured shape drawn behind it,
+  which keeps the two silhouettes distinct at small sizes — without it they merge into one blob.
+  The separation is deliberately thin: a wider one reads as a bite taken out of the phone rather
+  than as one object passing in front of another.
+-->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+
+    <!-- Phone body -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M38,44 H56 A5,5 0 0 1 61,49 V79 A5,5 0 0 1 56,84 H38 A5,5 0 0 1 33,79 V49 A5,5 0 0 1 38,44 Z" />
+
+    <!-- Screen, cut in the background colour so the body reads as a phone rather than a slab -->
+    <path
+        android:fillColor="#1B5E20"
+        android:pathData="M41,50 H53 A2,2 0 0 1 55,52 V76 A2,2 0 0 1 53,78 H41 A2,2 0 0 1 39,76 V52 A2,2 0 0 1 41,50 Z" />
+
     <group
-        android:scaleX="0.4"
-        android:scaleY="0.4"
-        android:translateX="32.4"
-        android:translateY="32.4">
+        android:pivotX="63"
+        android:pivotY="34.5"
+        android:rotation="-20">
+
+        <!-- Separation behind the card, in the background colour -->
         <path
-            android:fillColor="#FFFFFF"
-            android:pathData="M17,1.01L7,1c-1.1,0 -2,0.9 -2,2v18c0,1.1 0.9,2 2,2h10c1.1,0 2,-0.9 2,-2V3c0,-1.1 -0.9,-1.99 -2,-1.99zM17,19H7V5h10v14z" />
+            android:fillColor="#1B5E20"
+            android:pathData="M54,24 H72 A5,5 0 0 1 77,29 V40 A5,5 0 0 1 72,45 H54 A5,5 0 0 1 49,40 V29 A5,5 0 0 1 54,24 Z" />
+
+        <!-- The card, in the accent colour the app already uses for an active state -->
+        <path
+            android:fillColor="#00E676"
+            android:pathData="M55,26 H71 A3,3 0 0 1 74,29 V40 A3,3 0 0 1 71,43 H55 A3,3 0 0 1 52,40 V29 A3,3 0 0 1 55,26 Z" />
     </group>
 </vector>
