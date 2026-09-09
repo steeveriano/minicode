@@ -42,6 +42,8 @@ export function SettingsScreen({
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const governed = devices.filter((device) => device.transport === 'PROXY');
+
   async function change(slug: string, level: AccessLevel) {
     setBusy(slug);
     setError(null);
@@ -66,7 +68,16 @@ export function SettingsScreen({
 
         {error && <p className="error">{error}</p>}
 
-        {devices.map((device) => (
+        {/*
+          Only the devices the proxy forwards to. Offering a permission level for a machine that
+          nothing forwards to would be a control that changes nothing while implying the panel
+          governs that machine.
+        */}
+        {governed.length === 0 && (
+          <p className="note">Ningún dispositivo se navega desde el panel todavía.</p>
+        )}
+
+        {governed.map((device) => (
           <div className="device-perm" key={device.slug}>
             <h3>
               {device.alias} <span className="muted mono">{device.slug}</span>

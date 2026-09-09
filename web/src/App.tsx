@@ -41,7 +41,8 @@ export function App() {
     // Null is "you may not see this", not "there is nothing". The two must not be conflated.
     if (found === null) return null;
     setDevices(found);
-    setSelected((current) => current ?? found[0]?.slug ?? null);
+    // Only a device the panel can actually forward to is worth opening the browser on.
+    setSelected((current) => current ?? found.find((d) => d.transport === 'PROXY')?.slug ?? null);
     return found;
   }, []);
 

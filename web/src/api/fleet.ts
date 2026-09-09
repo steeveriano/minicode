@@ -3,12 +3,22 @@ import { supabase } from '../supabase';
 /** What a device's access level lets the proxy forward. Stored per device, never per session. */
 export type AccessLevel = 'read' | 'write' | 'full';
 
+/**
+ * How the panel reaches a machine — a different question from what kind of machine it is.
+ *
+ * `PROXY` is forwarded to by this site's own function, so it can be probed and browsed. `REPORT`
+ * signs in and writes what it found; nothing forwards to it, and probing one would always fail and
+ * read as a broken device rather than as a machine that simply is not served that way.
+ */
+export type Transport = 'PROXY' | 'REPORT';
+
 export type FleetDevice = {
   slug: string;
   alias: string;
   platform: 'ANDROID' | 'IOS' | 'PC';
   note: string | null;
   accessLevel: AccessLevel;
+  transport: Transport;
   lastSeenAt: string | null;
   lastStatus: 'online' | 'offline' | 'unknown' | null;
   capacityBytes: number | null;

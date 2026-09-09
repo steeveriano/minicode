@@ -31,6 +31,9 @@ export function DevicesScreen({
     setProbing(true);
     const next: Record<string, DeviceStatus | { error: string }> = {};
     for (const device of devices) {
+      // A reporting machine is not probed: there is nothing to probe, and a failed probe would
+      // paint it red for being exactly what it is.
+      if (device.transport === 'REPORT') continue;
       try {
         const status = await deviceStatus(device.slug);
         next[device.slug] = status;
@@ -54,8 +57,8 @@ export function DevicesScreen({
       <div className="gate">
         <h1>Sin dispositivos</h1>
         <p className="muted">
-          Todavía no hay ninguno registrado. Se agrega con una fila en <code>fleet.devices</code> y
-          dos variables de entorno con su URL y su token.
+          Todavía no hay ninguno registrado. Se agrega con una fila en <code>fleet.devices</code>: si
+          el panel lo navega, además con dos variables de entorno para su URL y su token.
         </p>
       </div>
     );
@@ -75,6 +78,7 @@ export function DevicesScreen({
       <div className="cards">
         {devices.map((device) => {
           const probe = probes[device.slug];
+          const reports = device.transport === 'REPORT';
           const online = probe && 'status' in probe && probe.status === 'online';
           const failed = probe && 'error' in probe;
           const used =
@@ -99,10 +103,28 @@ export function DevicesScreen({
                 </div>
                 <span
                   className={
-                    failed ? 'chip critical' : online ? 'chip ok' : probe ? 'chip warning' : 'chip'
+                    reports
+                      ? 'chip'
+                      : failed
+                        ? 'chip critical'
+                        : online
+                          ? 'chip ok'
+                          : probe
+                            ? 'chip warning'
+                            : 'chip'
                   }
                 >
-                  {failed ? 'Sin acceso' : online ? 'En línea' : probe ? 'Fuera de línea' : 'Consultando…'}
+                  {reports
+                    ? device.lastSeenAt
+                      ? `Reportó ${formatWhen(device.lastSeenAt)}`
+                      : 'Sin reportar'
+                    : failed
+                      ? 'Sin acceso'
+                      : online
+                        ? 'En línea'
+                        : probe
+                          ? 'Fuera de línea'
+                          : 'Consultando…'}
                 </span>
               </header>
 
@@ -120,9 +142,9 @@ export function DevicesScreen({
                   </dd>
                 </div>
                 <div>
-                  <dt>Respuesta</dt>
+                  <dt>{reports ? 'Enlace' : 'Respuesta'}</dt>
                   <dd className="mono">
-                    {probe && 'elapsedMs' in probe ? `${probe.elapsedMs} ms` : '—'}
+                    {reports ? 'Reporta' : probe && 'elapsedMs' in probe ? `${probe.elapsedMs} ms` : '—'}
                   </dd>
                 </div>
                 <div>
@@ -145,9 +167,10 @@ export function DevicesScreen({
                 type="button"
                 className={device.slug === selected ? 'ghost' : ''}
                 onClick={() => onSelect(device.slug)}
-                disabled={device.slug === selected}
+                disabled={reports || device.slug === selected}
+                title={reports ? 'Esta máquina reporta por su cuenta; el panel no la navega.' : undefined}
               >
-                {device.slug === selected ? 'Seleccionado' : 'Navegar este'}
+                {reports ? 'No se navega' : device.slug === selected ? 'Seleccionado' : 'Navegar este'}
               </button>
             </article>
           );
@@ -155,4 +178,13 @@ export function DevicesScreen({
       </div>
     </div>
   );
+}
+
+function formatWhen(iso: string): string {
+  const when = new Date(iso);
+  const days = Math.floor((Date.now() - when.getTime()) / 86_400_000);
+  if (days === 0) return 'hoy';
+  if (days === 1) return 'ayer';
+  if (days < 30) return `hace ${days} días`;
+  return when.toLocaleDateString('es', { day: '2-digit', month: 'short', year: 'numeric' });
 }
