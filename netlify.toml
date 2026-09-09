@@ -1,8 +1,9 @@
-# Netlify config for the web viewer in `web/`.
+# Netlify config for the web panel in `web/`.
 #
 # It sits at the repository root because `base` is resolved from there: inside `web/` it would
 # resolve to `web/web`. The Android app is the rest of this repository and has nothing to do with
 # this deploy.
+
 [build]
   base = "web"
   command = "npm run build"
@@ -11,7 +12,14 @@
 [build.environment]
   NODE_VERSION = "22"
 
+# Resolved relative to `base`, so this is `web/netlify/functions`. These carry the device bearer
+# tokens; nothing in `dist/` ever sees one.
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
 # A single-page app: every path has to reach index.html, or a refresh on a deep link 404s.
+# Function routes are matched before this catch-all, so `/api/*` still reaches its function.
 [[redirects]]
   from = "/*"
   to = "/index.html"
@@ -20,13 +28,17 @@
 [[headers]]
   for = "/*"
   [headers.values]
-    # The page is a private inventory of one person's phone. Keep it out of search engines and out
-    # of referrer headers, and let nothing embed it.
+    # The page is a private inventory of one person's devices. Keep it out of search engines and
+    # out of referrer headers, and let nothing embed it.
     X-Robots-Tag = "noindex, nofollow"
     Referrer-Policy = "no-referrer"
     X-Content-Type-Options = "nosniff"
     X-Frame-Options = "DENY"
-    # `connect-src` names exactly one origin: the Supabase project. That is what keeps proving the
-    # page cannot reach the phone — the device's tunnel is not in this list, so a request to it is
-    # blocked by the browser whatever ends up in the bundle later.
-    Content-Security-Policy = "default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src https://fqrrcoupmwssqbatgxrs.supabase.co wss://fqrrcoupmwssqbatgxrs.supabase.co; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+    # `connect-src` names two origins and no more: this site itself, and the Supabase project.
+    #
+    # The devices are deliberately absent. The page reaches a phone only through `/api/device/…`,
+    # a same-origin function that holds the bearer token server-side and forwards a fixed
+    # allowlist of read-only tools. That is what keeps this directive from growing a host every
+    # time a device is added or a tunnel hostname changes — and it means a token cannot leak
+    # from the bundle, because there is none in it.
+    Content-Security-Policy = "default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://fqrrcoupmwssqbatgxrs.supabase.co wss://fqrrcoupmwssqbatgxrs.supabase.co; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
