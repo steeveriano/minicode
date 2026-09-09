@@ -1,5 +1,8 @@
-# Netlify builds this directory, not the repository root: the Android app lives beside it and has
-# nothing to do with the deploy.
+# Netlify config for the web viewer in `web/`.
+#
+# It sits at the repository root because `base` is resolved from there: inside `web/` it would
+# resolve to `web/web`. The Android app is the rest of this repository and has nothing to do with
+# this deploy.
 [build]
   base = "web"
   command = "npm run build"
