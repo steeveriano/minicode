@@ -59,6 +59,8 @@ import com.danielealbano.androidremotecontrolmcp.services.storage.MediaStoreFile
 import com.danielealbano.androidremotecontrolmcp.services.storage.MediaStoreFileOperationsImpl
 import com.danielealbano.androidremotecontrolmcp.services.storage.PermissionChecker
 import com.danielealbano.androidremotecontrolmcp.services.storage.PermissionCheckerImpl
+import com.danielealbano.androidremotecontrolmcp.services.storage.QuarantineProvider
+import com.danielealbano.androidremotecontrolmcp.services.storage.QuarantineProviderImpl
 import com.danielealbano.androidremotecontrolmcp.services.storage.StorageLocationProvider
 import com.danielealbano.androidremotecontrolmcp.services.storage.StorageLocationProviderImpl
 import com.danielealbano.androidremotecontrolmcp.services.tunnel.AndroidCloudflareBinaryResolver
@@ -218,6 +220,10 @@ abstract class ServiceModule {
     @Binds
     @Singleton
     abstract fun bindMediaStoreFileOperations(impl: MediaStoreFileOperationsImpl): MediaStoreFileOperations
+
+    @Binds
+    @Singleton
+    abstract fun bindQuarantineProvider(impl: QuarantineProviderImpl): QuarantineProvider
 
     @Binds
     @Singleton
