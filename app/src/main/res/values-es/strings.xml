@@ -27,6 +27,7 @@
 
     <!-- Settings Sub-pages -->
     <string name="settings_general_title">General</string>
+    <string name="settings_general_behaviour_title">Comportamiento</string>
     <string name="settings_general_subtitle">Puerto, dirección, dispositivo, inicio automático</string>
     <string name="settings_access_title">Acceso</string>
     <string name="settings_access_subtitle">OAuth, token de acceso, clientes conectados</string>
@@ -75,6 +76,37 @@
     <!-- Clipboard -->
     <string name="copied_to_clipboard">Copiado al portapapeles</string>
 
+    <!-- Per-setting help, shown by the "?" next to a setting -->
+    <string name="help_binding_address">En qué interfaz de red escucha el servidor. «Solo este equipo» acepta conexiones únicamente desde este teléfono — lo más seguro, pero una computadora en tu Wi-Fi no llega sin un túnel o un reenvío de puerto por adb. «Red local» acepta conexiones de cualquier dispositivo en la misma Wi-Fi, incluidos los que no controlás.</string>
+    <string name="help_port">El puerto TCP en el que escucha el servidor. Sirve cualquier número entre 1024 y 65535; 8080 es un valor seguro. Cambialo solo si otra app del teléfono ya usa ese puerto — el cliente desde el que te conectes tiene que usar el mismo número.</string>
+    <string name="help_device_slug">Un apodo corto para este teléfono, para distinguir varios dispositivos cuando hay más de uno conectado. Es opcional: si lo dejás vacío no pasa nada. Letras, números y guiones bajos.</string>
+    <string name="help_bearer_token">La contraseña que el cliente MCP debe enviar en cada petición. A quien llegue al servidor sin ella se le rechaza. Si está vacío, el servidor acepta a cualquiera que pueda alcanzarlo — con un túnel activo, eso es todo internet.</string>
+    <string name="help_oauth">Permite que Claude en la web se conecte sin que copies un token: la app te pide aprobar cada conexión en el teléfono. Necesita una dirección HTTPS pública, así que solo funciona con un túnel activo.</string>
+    <string name="help_public_url">Reemplaza la dirección que la app le informa a los clientes. Dejalo vacío y la app la deduce de la petición entrante, que es lo correcto casi siempre. Ponelo solo si algo entre el cliente y el teléfono reescribe el host.</string>
+    <string name="help_https">Cifra la conexión. El certificado solo puede ser autofirmado, porque la IP del teléfono cambia y ninguna autoridad pública emite certificados para IPs sueltas — así que a cada cliente hay que decirle que acepte un certificado sin verificar. Un túnel te da HTTPS de verdad sin nada de esto.</string>
+    <string name="help_cert_hostname">El nombre que se escribe dentro del certificado autofirmado. Tiene que coincidir con lo que el cliente escriba en la barra de direcciones, o el cliente rechaza la conexión aunque haya aceptado el certificado.</string>
+    <string name="help_tunnel">Le da al teléfono una dirección pública en internet, para que un cliente en cualquier lado pueda alcanzarlo sin tocar tu router. El teléfono abre la conexión hacia afuera, así que no hace falta abrir puertos.</string>
+    <string name="help_tunnel_provider">Cloudflare no necesita cuenta y te da una dirección aleatoria nueva cada vez que arranca. ngrok necesita una cuenta gratuita pero puede conservar la misma dirección, así no tenés que reconfigurar el cliente después de cada reinicio.</string>
+    <string name="help_cloudflare_mode">«Gratuito» no necesita nada y da una dirección descartable que cambia en cada reinicio. «Con token» usa tu propia cuenta de Cloudflare y un dominio tuyo, así la dirección no cambia.</string>
+    <string name="help_cloudflare_token">El token que muestra Cloudflare cuando creás un túnel en su panel. Identifica este túnel como tuyo. Tratalo como una contraseña.</string>
+    <string name="help_cloudflare_extra_args">Opciones de línea de comandos que se le pasan directo a cloudflared. Dejalo vacío salvo que estés sorteando un problema concreto — el más común es --edge, para evitar problemas de DNS en una red restrictiva.</string>
+    <string name="help_ngrok_authtoken">El token de tu cuenta de ngrok, en «Your Authtoken». Sin él ngrok se niega a abrir el túnel. Tratalo como una contraseña.</string>
+    <string name="help_ngrok_domain">Una dirección fija de tu cuenta de ngrok, para que la URL sobreviva los reinicios. Dejalo vacío y ngrok asigna una aleatoria cada vez.</string>
+    <string name="help_storage_location">Una carpeta que autorizaste a la app a usar. La app solo ve las carpetas que agregues acá — el resto del teléfono queda fuera de su alcance.</string>
+    <string name="help_allow_write">Permite que el MCP cree y modifique archivos en esta ubicación. Si está apagado, la ubicación es de solo lectura.</string>
+    <string name="help_allow_delete">Permite que el MCP borre archivos acá — y mover un archivo fuera de una carpeta cuenta como borrarlo de esa carpeta, así que mover también lo necesita.</string>
+    <string name="help_file_size_limit">El archivo más grande que el MCP leerá o escribirá de una vez. Protege la memoria del teléfono: leer un video de 2 GB en memoria mataría la app.</string>
+    <string name="help_download_timeout">Cuánto puede tardar una descarga antes de que la app se rinda. Subilo con una conexión lenta; bajalo para que una descarga trabada no deje una petición abierta.</string>
+    <string name="help_http_downloads">Permite descargar desde direcciones http:// sin cifrar. Cualquiera en la red puede leer o alterar lo que baja. Dejalo apagado salvo que necesites un servidor concreto que no tenga HTTPS.</string>
+    <string name="help_unverified_https">Acepta certificados HTTPS que el teléfono no puede verificar. Eso es exactamente lo que parece un ataque de intermediario, así que el cifrado deja de probar con quién estás hablando.</string>
+    <string name="help_auto_start">Arranca el servidor solo cuando el teléfono se enciende, para no tener que abrir la app después de un reinicio.</string>
+    <string name="help_hide_from_recents">Mantiene la app fuera del carrusel de aplicaciones recientes. No cambia nada de lo que hace la app — solo qué tan fácil la nota alguien que pasa el dedo por tu teléfono.</string>
+    <string name="help_tool_call_indicator">Muestra un aviso pequeño mientras el MCP actúa sobre el dispositivo, nombrando la herramienta que ejecuta. Nunca muestra el contenido que leyó.</string>
+    <string name="help_event_channel">Reenvía notificaciones y eventos de Wi-Fi del teléfono a una dirección web que elijas, para que otra cosa pueda reaccionar. Es independiente del servidor MCP y está apagado salvo que lo configures.</string>
+    <string name="help_mcp_tool">Apagar una herramienta la oculta de todos los clientes: el MCP ni siquiera ve que existe, así que no se le puede pedir que la ejecute. Los cambios se aplican al reiniciar el servidor.</string>
+
+    <string name="help_what_is_this">¿Qué es “%1$s”?</string>
+    <string name="help_dismiss">Entendido</string>
     <string name="action_back">Volver</string>
     <string name="action_remove">Quitar</string>
     <string name="action_add">Agregar</string>

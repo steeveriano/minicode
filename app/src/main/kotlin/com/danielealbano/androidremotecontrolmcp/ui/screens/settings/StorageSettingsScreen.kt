@@ -65,6 +65,8 @@ import com.danielealbano.androidremotecontrolmcp.data.model.BuiltinAccessLevel
 import com.danielealbano.androidremotecontrolmcp.data.model.BuiltinStorageLocation
 import com.danielealbano.androidremotecontrolmcp.data.model.StorageLocation
 import com.danielealbano.androidremotecontrolmcp.services.storage.StorageLocationProvider
+import com.danielealbano.androidremotecontrolmcp.ui.components.HelpHint
+import com.danielealbano.androidremotecontrolmcp.ui.components.HelpText
 import com.danielealbano.androidremotecontrolmcp.ui.components.PermissionTogglePair
 import com.danielealbano.androidremotecontrolmcp.ui.components.SectionIntro
 import com.danielealbano.androidremotecontrolmcp.ui.components.SettingsSection
@@ -191,7 +193,14 @@ fun StorageSettingsScreen(
 
                 Column {
                     SectionIntro(stringResource(R.string.storage_locations_description))
-                    SettingsSection(title = stringResource(R.string.storage_user_locations_title)) {
+                    SettingsSection(
+                        title = stringResource(R.string.storage_user_locations_title),
+                        help =
+                            HelpText(
+                                stringResource(R.string.storage_user_locations_title),
+                                stringResource(R.string.help_storage_location),
+                            ),
+                    ) {
                         if (userLocations.isEmpty()) {
                             Text(
                                 text = stringResource(R.string.storage_location_no_locations),
@@ -249,6 +258,14 @@ fun StorageSettingsScreen(
                             label = { Text(stringResource(R.string.storage_file_size_limit_label)) },
                             isError = fileSizeLimitError != null,
                             supportingText = fileSizeLimitError?.let { { Text(it) } },
+                            trailingIcon = {
+                                HelpHint(
+                                    HelpText(
+                                        stringResource(R.string.storage_file_size_limit_label),
+                                        stringResource(R.string.help_file_size_limit),
+                                    ),
+                                )
+                            },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
@@ -259,6 +276,14 @@ fun StorageSettingsScreen(
                             label = { Text(stringResource(R.string.storage_download_timeout_label)) },
                             isError = downloadTimeoutError != null,
                             supportingText = downloadTimeoutError?.let { { Text(it) } },
+                            trailingIcon = {
+                                HelpHint(
+                                    HelpText(
+                                        stringResource(R.string.storage_download_timeout_label),
+                                        stringResource(R.string.help_download_timeout),
+                                    ),
+                                )
+                            },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
@@ -271,12 +296,22 @@ fun StorageSettingsScreen(
                         checked = serverConfig.allowHttpDownloads,
                         onCheckedChange = viewModel::updateAllowHttpDownloads,
                         showDivider = true,
+                        help =
+                            HelpText(
+                                stringResource(R.string.storage_allow_http_downloads_label),
+                                stringResource(R.string.help_http_downloads),
+                            ),
                     )
                     SettingsSwitchRow(
                         title = stringResource(R.string.storage_allow_unverified_https_label),
                         subtitle = stringResource(R.string.storage_allow_unverified_https_description),
                         checked = serverConfig.allowUnverifiedHttpsCerts,
                         onCheckedChange = viewModel::updateAllowUnverifiedHttpsCerts,
+                        help =
+                            HelpText(
+                                stringResource(R.string.storage_allow_unverified_https_label),
+                                stringResource(R.string.help_unverified_https),
+                            ),
                     )
                 }
             }
@@ -514,9 +549,19 @@ private fun StorageLocationRow(
             firstLabel = stringResource(R.string.storage_location_allow_write_label),
             firstChecked = location.allowWrite,
             onFirstChange = onAllowWriteChange,
+            firstHelp =
+                HelpText(
+                    stringResource(R.string.storage_location_allow_write_label),
+                    stringResource(R.string.help_allow_write),
+                ),
             secondLabel = stringResource(R.string.storage_location_allow_delete_label),
             secondChecked = location.allowDelete,
             onSecondChange = onAllowDeleteChange,
+            secondHelp =
+                HelpText(
+                    stringResource(R.string.storage_location_allow_delete_label),
+                    stringResource(R.string.help_allow_delete),
+                ),
         )
     }
     if (showDivider) {
@@ -556,9 +601,19 @@ private fun BuiltinStorageLocationRow(
             firstLabel = stringResource(R.string.storage_location_allow_write_label),
             firstChecked = location.allowWrite,
             onFirstChange = onAllowWriteChange,
+            firstHelp =
+                HelpText(
+                    stringResource(R.string.storage_location_allow_write_label),
+                    stringResource(R.string.help_allow_write),
+                ),
             secondLabel = stringResource(R.string.storage_location_allow_delete_label),
             secondChecked = location.allowDelete,
             onSecondChange = onAllowDeleteChange,
+            secondHelp =
+                HelpText(
+                    stringResource(R.string.storage_location_allow_delete_label),
+                    stringResource(R.string.help_allow_delete),
+                ),
         )
         if (readMediaPermissions.isNotEmpty()) {
             OutlinedButton(

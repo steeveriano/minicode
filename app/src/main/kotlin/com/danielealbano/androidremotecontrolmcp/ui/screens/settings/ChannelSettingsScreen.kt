@@ -48,6 +48,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import com.danielealbano.androidremotecontrolmcp.R
+import com.danielealbano.androidremotecontrolmcp.ui.components.HelpHint
+import com.danielealbano.androidremotecontrolmcp.ui.components.HelpText
 import com.danielealbano.androidremotecontrolmcp.ui.viewmodels.ChannelViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -90,6 +92,14 @@ fun ChannelSettingsScreen(
                     value = endpointUrlInput,
                     onValueChange = { viewModel.updateEndpointUrl(it) },
                     label = { Text(stringResource(R.string.channel_endpoint_url_label)) },
+                    trailingIcon = {
+                        HelpHint(
+                            HelpText(
+                                stringResource(R.string.channel_title),
+                                stringResource(R.string.help_event_channel),
+                            ),
+                        )
+                    },
                     isError = endpointUrlError != null,
                     supportingText = endpointUrlError?.let { { Text(it) } },
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),

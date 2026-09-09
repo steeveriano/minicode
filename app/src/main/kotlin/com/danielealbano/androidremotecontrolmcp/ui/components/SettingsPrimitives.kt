@@ -38,10 +38,15 @@ import androidx.compose.ui.unit.dp
 fun SettingsSection(
     title: String,
     modifier: Modifier = Modifier,
+    help: HelpText? = null,
     content: @Composable () -> Unit,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
-        TileLabel(title, modifier = Modifier.padding(start = 4.dp, bottom = 8.dp))
+        if (help == null) {
+            TileLabel(title, modifier = Modifier.padding(start = 4.dp, bottom = 8.dp))
+        } else {
+            LabelWithHelp(title, help, modifier = Modifier.padding(start = 4.dp, bottom = 4.dp))
+        }
         DashboardPanel {
             Column {
                 content()
@@ -149,22 +154,24 @@ fun SettingsSwitchRow(
     subtitle: String? = null,
     enabled: Boolean = true,
     showDivider: Boolean = false,
+    help: HelpText? = null,
 ) {
     Column(modifier = modifier) {
         Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .toggleable(
-                        value = checked,
-                        enabled = enabled,
-                        role = Role.Switch,
-                        onValueChange = onCheckedChange,
-                    ).heightIn(min = 48.dp)
-                    .padding(horizontal = 14.dp, vertical = 10.dp),
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(Modifier.weight(1f)) {
+            Column(
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .toggleable(
+                            value = checked,
+                            enabled = enabled,
+                            role = Role.Switch,
+                            onValueChange = onCheckedChange,
+                        ).padding(start = 14.dp, top = 10.dp, bottom = 10.dp),
+            ) {
                 Text(
                     text = title,
                     style = MaterialTheme.typography.bodyLarge,
@@ -179,10 +186,19 @@ fun SettingsSwitchRow(
                     )
                 }
             }
-            InlineGap(12)
-            // Null handler: the row above owns the toggle, so the switch must not be its own
-            // target — two overlapping targets make the row swallow every second tap.
-            Switch(checked = checked, onCheckedChange = null, enabled = enabled)
+            // The label toggles the setting; the "?" must not. Keeping them as separate targets in
+            // one row is the point — a user who does not understand a setting taps to find out,
+            // and would otherwise have flipped it instead.
+            if (help != null) {
+                HelpHint(help)
+            }
+            InlineGap(4)
+            Switch(
+                checked = checked,
+                onCheckedChange = onCheckedChange,
+                enabled = enabled,
+                modifier = Modifier.padding(end = 14.dp),
+            )
         }
         if (showDivider) {
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -196,6 +212,7 @@ fun SettingsSwitchRow(
  * Four copies of this existed, two of them character-for-character identical.
  */
 @Composable
+@Suppress("LongParameterList")
 fun PermissionTogglePair(
     firstLabel: String,
     firstChecked: Boolean,
@@ -204,14 +221,16 @@ fun PermissionTogglePair(
     secondChecked: Boolean,
     onSecondChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    firstHelp: HelpText? = null,
+    secondHelp: HelpText? = null,
 ) {
     Row(
         modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(20.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        CompactToggle(firstLabel, firstChecked, onFirstChange)
-        CompactToggle(secondLabel, secondChecked, onSecondChange)
+        CompactToggle(firstLabel, firstChecked, onFirstChange, firstHelp)
+        CompactToggle(secondLabel, secondChecked, onSecondChange, secondHelp)
     }
 }
 
@@ -220,20 +239,26 @@ private fun CompactToggle(
     label: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
+    help: HelpText?,
 ) {
-    Row(
-        modifier =
-            Modifier
-                .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
-                .heightIn(min = 48.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        InlineGap(6)
-        Switch(checked = checked, onCheckedChange = null)
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier =
+                Modifier
+                    .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
+                    .heightIn(min = 48.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            InlineGap(6)
+            Switch(checked = checked, onCheckedChange = null)
+        }
+        if (help != null) {
+            HelpHint(help)
+        }
     }
 }

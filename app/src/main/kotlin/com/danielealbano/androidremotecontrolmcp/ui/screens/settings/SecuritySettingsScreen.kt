@@ -41,6 +41,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.danielealbano.androidremotecontrolmcp.R
 import com.danielealbano.androidremotecontrolmcp.data.model.CertificateSource
 import com.danielealbano.androidremotecontrolmcp.data.model.ServerStatus
+import com.danielealbano.androidremotecontrolmcp.ui.components.HelpHint
+import com.danielealbano.androidremotecontrolmcp.ui.components.HelpText
+import com.danielealbano.androidremotecontrolmcp.ui.components.SettingsSwitchRow
 import com.danielealbano.androidremotecontrolmcp.ui.viewmodels.MainViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -77,22 +80,17 @@ fun SecuritySettingsScreen(
                     .verticalScroll(rememberScrollState())
                     .padding(16.dp),
         ) {
-            // HTTPS Toggle
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = stringResource(R.string.config_https_enabled_label),
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.weight(1f),
-                )
-                Switch(
-                    checked = serverConfig.httpsEnabled,
-                    onCheckedChange = viewModel::updateHttpsEnabled,
-                    enabled = isEnabled,
-                )
-            }
+            SettingsSwitchRow(
+                title = stringResource(R.string.config_https_enabled_label),
+                checked = serverConfig.httpsEnabled,
+                onCheckedChange = viewModel::updateHttpsEnabled,
+                enabled = isEnabled,
+                help =
+                    HelpText(
+                        stringResource(R.string.config_https_enabled_label),
+                        stringResource(R.string.help_https),
+                    ),
+            )
 
             // HTTPS Certificate Section (visible only when HTTPS is enabled)
             AnimatedVisibility(visible = serverConfig.httpsEnabled) {
@@ -151,6 +149,14 @@ fun SecuritySettingsScreen(
                             label = { Text(stringResource(R.string.config_hostname_label)) },
                             isError = hostnameError != null,
                             supportingText = hostnameError?.let { { Text(it) } },
+                            trailingIcon = {
+                                HelpHint(
+                                    HelpText(
+                                        stringResource(R.string.config_hostname_label),
+                                        stringResource(R.string.help_cert_hostname),
+                                    ),
+                                )
+                            },
                             singleLine = true,
                             enabled = isEnabled,
                             modifier = Modifier.fillMaxWidth(),

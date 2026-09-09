@@ -21,6 +21,7 @@
 
     <!-- Settings Sub-pages -->
     <string name="settings_general_title">General</string>
+    <string name="settings_general_behaviour_title">Behaviour</string>
     <string name="settings_general_subtitle">Port, address, device, auto-start</string>
     <string name="settings_access_title">Access</string>
     <string name="settings_access_subtitle">OAuth, bearer token, connected clients</string>
@@ -73,6 +74,37 @@
     <!-- Clipboard -->
     <string name="copied_to_clipboard">Copied to clipboard</string>
 
+    <!-- Per-setting help, shown by the "?" next to a setting -->
+    <string name="help_binding_address">Which network interface the server listens on. “Localhost” accepts connections only from this phone — safest, but a computer on your Wi-Fi cannot reach it without a tunnel or an adb port-forward. “Network” accepts connections from every device on the same Wi-Fi, including ones you do not control.</string>
+    <string name="help_port">The TCP port the server listens on. Any number from 1024 to 65535 works; 8080 is a safe default. Change it only if another app on the phone already uses that port — the client you connect from has to use the same number.</string>
+    <string name="help_device_slug">A short nickname for this phone, used to tell several devices apart when more than one is connected. Optional: leave it empty and nothing breaks. Letters, digits and underscores.</string>
+    <string name="help_bearer_token">The password the MCP client must send with every request. Anyone who reaches the server without it is rejected. If it is empty the server accepts anyone who can reach it — on a tunnel, that is the whole internet.</string>
+    <string name="help_oauth">Lets Claude on the web connect without you copying a token: the app asks you to approve each connection on the phone. Needs a public HTTPS address, so it only works with an active tunnel.</string>
+    <string name="help_public_url">Overrides the address the app reports to clients. Leave it empty and the app works it out from the incoming request, which is right almost always. Set it only if something between the client and the phone rewrites the host.</string>
+    <string name="help_https">Encrypts the connection. The certificate can only be self-signed, because the phone\'s IP changes and no public authority issues certificates for bare IPs — so every client has to be told to accept an unverified certificate. A tunnel gives you real HTTPS without any of this.</string>
+    <string name="help_cert_hostname">The name written into the self-signed certificate. It has to match whatever the client types in the address bar, or the client refuses the connection even after accepting the certificate.</string>
+    <string name="help_tunnel">Gives the phone a public address on the internet, so a client anywhere can reach it without touching your router. The phone opens the connection outward, so no port forwarding is needed.</string>
+    <string name="help_tunnel_provider">Cloudflare needs no account and gives you a new random address every time it starts. ngrok needs a free account but can keep the same address, so you do not have to reconfigure the client after each restart.</string>
+    <string name="help_cloudflare_mode">“Free” needs nothing and gives a throwaway address that changes on every restart. “With token” uses your own Cloudflare account and a domain you own, so the address stays the same.</string>
+    <string name="help_cloudflare_token">The token Cloudflare shows when you create a tunnel in its dashboard. It identifies this tunnel as yours. Treat it like a password.</string>
+    <string name="help_cloudflare_extra_args">Extra command-line flags passed straight to cloudflared. Leave it empty unless you are working around a specific problem — the usual one is --edge, to bypass DNS trouble on a restrictive network.</string>
+    <string name="help_ngrok_authtoken">The token from your ngrok account, under “Your Authtoken”. Without it ngrok refuses to open the tunnel. Treat it like a password.</string>
+    <string name="help_ngrok_domain">A fixed address on your ngrok account, so the URL survives restarts. Leave it empty and ngrok assigns a random one each time.</string>
+    <string name="help_storage_location">A folder you have authorized the app to work in. The app can only see folders you add here — everything else on the phone stays out of reach.</string>
+    <string name="help_allow_write">Lets the MCP create and modify files in this location. With it off, the location is read-only.</string>
+    <string name="help_allow_delete">Lets the MCP delete files here — and moving a file out of a folder counts as deleting it from that folder, so a move needs this too.</string>
+    <string name="help_file_size_limit">The largest file the MCP will read or write in one go. It protects the phone\'s memory: reading a 2 GB video into memory would kill the app.</string>
+    <string name="help_download_timeout">How long a download may take before the app gives up. Raise it on a slow connection; lower it so a stalled download does not hold a request open.</string>
+    <string name="help_http_downloads">Allows downloading from unencrypted http:// addresses. Anyone on the network can read or alter what comes down. Leave it off unless you need a specific server that has no HTTPS.</string>
+    <string name="help_unverified_https">Accepts HTTPS certificates the phone cannot verify. That is exactly what a machine-in-the-middle looks like, so the encryption stops proving who you are talking to.</string>
+    <string name="help_auto_start">Starts the server by itself when the phone boots, so you do not have to open the app after a restart.</string>
+    <string name="help_hide_from_recents">Keeps the app out of the recent-apps carousel. It changes nothing about what the app does — only how easily someone flicking through your phone notices it.</string>
+    <string name="help_tool_call_indicator">Shows a small overlay while the MCP is acting on the device, naming the tool it is running. It never shows the content it read.</string>
+    <string name="help_event_channel">Forwards notifications and Wi-Fi events from the phone to a web address you choose, so something else can react to them. It is separate from the MCP server and off unless you configure it.</string>
+    <string name="help_mcp_tool">Turning a tool off hides it from every client: the MCP will not even see that it exists, so it cannot be asked to run it. Changes take effect when the server restarts.</string>
+
+    <string name="help_what_is_this">What is “%1$s”?</string>
+    <string name="help_dismiss">Got it</string>
     <string name="action_back">Back</string>
     <string name="action_remove">Remove</string>
     <string name="action_add">Add</string>

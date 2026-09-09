@@ -2,6 +2,7 @@
 
 package com.danielealbano.androidremotecontrolmcp.ui.screens.settings
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -45,6 +46,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.danielealbano.androidremotecontrolmcp.R
 import com.danielealbano.androidremotecontrolmcp.data.model.BindingAddress
 import com.danielealbano.androidremotecontrolmcp.data.model.ServerStatus
+import com.danielealbano.androidremotecontrolmcp.ui.components.HelpHint
+import com.danielealbano.androidremotecontrolmcp.ui.components.HelpText
+import com.danielealbano.androidremotecontrolmcp.ui.components.SettingsSection
+import com.danielealbano.androidremotecontrolmcp.ui.components.SettingsSwitchRow
 import com.danielealbano.androidremotecontrolmcp.ui.viewmodels.MainViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -104,142 +109,129 @@ fun GeneralSettingsScreen(
                 Modifier
                     .weight(1f)
                     .verticalScroll(rememberScrollState())
-                    .padding(16.dp),
+                    .padding(horizontal = 16.dp)
+                    .padding(bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            // Binding Address Selector
-            Text(
-                text = stringResource(R.string.config_binding_address_label),
-                style = MaterialTheme.typography.labelLarge,
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            val options = BindingAddress.entries
-            SingleChoiceSegmentedButtonRow(
-                modifier = Modifier.fillMaxWidth(),
+            SettingsSection(
+                title = stringResource(R.string.config_binding_address_label),
+                help =
+                    HelpText(
+                        stringResource(R.string.config_binding_address_label),
+                        stringResource(R.string.help_binding_address),
+                    ),
             ) {
-                options.forEachIndexed { index, address ->
-                    SegmentedButton(
-                        selected = address == serverConfig.bindingAddress,
-                        onClick = {
-                            if (address == BindingAddress.NETWORK) {
-                                showNetworkWarningDialog = true
-                            } else {
-                                viewModel.updateBindingAddress(address)
-                            }
-                        },
-                        shape =
-                            SegmentedButtonDefaults.itemShape(
-                                index = index,
-                                count = options.size,
-                            ),
-                        enabled = isEnabled,
-                    ) {
-                        Text(
-                            text =
-                                when (address) {
-                                    BindingAddress.LOCALHOST -> stringResource(R.string.config_binding_localhost)
-                                    BindingAddress.NETWORK -> stringResource(R.string.config_binding_network)
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    val options = BindingAddress.entries
+                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                        options.forEachIndexed { index, address ->
+                            SegmentedButton(
+                                selected = address == serverConfig.bindingAddress,
+                                onClick = {
+                                    if (address == BindingAddress.NETWORK) {
+                                        showNetworkWarningDialog = true
+                                    } else {
+                                        viewModel.updateBindingAddress(address)
+                                    }
                                 },
-                        )
+                                shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
+                                enabled = isEnabled,
+                            ) {
+                                Text(
+                                    text =
+                                        when (address) {
+                                            BindingAddress.LOCALHOST -> {
+                                                stringResource(R.string.config_binding_localhost)
+                                            }
+
+                                            BindingAddress.NETWORK -> {
+                                                stringResource(R.string.config_binding_network)
+                                            }
+                                        },
+                                )
+                            }
+                        }
                     }
+
+                    OutlinedTextField(
+                        value = portInput,
+                        onValueChange = viewModel::updatePort,
+                        label = { Text(stringResource(R.string.config_port_label)) },
+                        isError = portError != null,
+                        supportingText = portError?.let { { Text(it) } },
+                        trailingIcon = {
+                            HelpHint(
+                                HelpText(
+                                    stringResource(R.string.config_port_label),
+                                    stringResource(R.string.help_port),
+                                ),
+                            )
+                        },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                        enabled = isEnabled,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+
+                    OutlinedTextField(
+                        value = deviceSlugInput,
+                        onValueChange = viewModel::updateDeviceSlug,
+                        label = { Text(stringResource(R.string.config_device_slug_label)) },
+                        placeholder = { Text(stringResource(R.string.config_device_slug_hint)) },
+                        isError = deviceSlugError != null,
+                        supportingText = deviceSlugError?.let { { Text(it) } },
+                        trailingIcon = {
+                            HelpHint(
+                                HelpText(
+                                    stringResource(R.string.config_device_slug_label),
+                                    stringResource(R.string.help_device_slug),
+                                ),
+                            )
+                        },
+                        singleLine = true,
+                        enabled = isEnabled,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Port Input
-            OutlinedTextField(
-                value = portInput,
-                onValueChange = viewModel::updatePort,
-                label = { Text(stringResource(R.string.config_port_label)) },
-                isError = portError != null,
-                supportingText = portError?.let { { Text(it) } },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                singleLine = true,
-                enabled = isEnabled,
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Device Slug Input
-            OutlinedTextField(
-                value = deviceSlugInput,
-                onValueChange = viewModel::updateDeviceSlug,
-                label = { Text(stringResource(R.string.config_device_slug_label)) },
-                placeholder = { Text(stringResource(R.string.config_device_slug_hint)) },
-                isError = deviceSlugError != null,
-                supportingText = deviceSlugError?.let { { Text(it) } },
-                singleLine = true,
-                enabled = isEnabled,
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Tool-call Indicator Toggle
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.config_tool_call_indicator_label),
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
-                    Text(
-                        text = stringResource(R.string.config_tool_call_indicator_description),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Switch(
+            SettingsSection(title = stringResource(R.string.settings_general_behaviour_title)) {
+                SettingsSwitchRow(
+                    title = stringResource(R.string.config_tool_call_indicator_label),
+                    subtitle = stringResource(R.string.config_tool_call_indicator_description),
                     checked = serverConfig.toolCallIndicatorEnabled,
                     onCheckedChange = viewModel::updateToolCallIndicatorEnabled,
                     enabled = isEnabled,
+                    showDivider = true,
+                    help =
+                        HelpText(
+                            stringResource(R.string.config_tool_call_indicator_label),
+                            stringResource(R.string.help_tool_call_indicator),
+                        ),
                 )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Auto-Start Toggle
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = stringResource(R.string.config_auto_start_label),
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.weight(1f),
-                )
-                Switch(
+                SettingsSwitchRow(
+                    title = stringResource(R.string.config_auto_start_label),
                     checked = serverConfig.autoStartOnBoot,
                     onCheckedChange = viewModel::updateAutoStartOnBoot,
                     enabled = isEnabled,
+                    showDivider = true,
+                    help =
+                        HelpText(
+                            stringResource(R.string.config_auto_start_label),
+                            stringResource(R.string.help_auto_start),
+                        ),
                 )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Hide from Recents Toggle
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.config_hide_from_recents_label),
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
-                    Text(
-                        text = stringResource(R.string.config_hide_from_recents_description),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Switch(
+                SettingsSwitchRow(
+                    title = stringResource(R.string.config_hide_from_recents_label),
+                    subtitle = stringResource(R.string.config_hide_from_recents_description),
                     checked = serverConfig.hideFromRecents,
                     onCheckedChange = viewModel::updateHideFromRecents,
                     enabled = isEnabled,
+                    help =
+                        HelpText(
+                            stringResource(R.string.config_hide_from_recents_label),
+                            stringResource(R.string.help_hide_from_recents),
+                        ),
                 )
             }
         }

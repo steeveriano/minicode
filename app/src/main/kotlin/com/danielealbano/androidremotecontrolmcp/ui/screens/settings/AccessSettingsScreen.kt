@@ -51,6 +51,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.danielealbano.androidremotecontrolmcp.R
+import com.danielealbano.androidremotecontrolmcp.ui.components.HelpHint
+import com.danielealbano.androidremotecontrolmcp.ui.components.HelpText
+import com.danielealbano.androidremotecontrolmcp.ui.components.SettingsSwitchRow
 import com.danielealbano.androidremotecontrolmcp.ui.viewmodels.AccessViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -120,21 +123,17 @@ fun AccessSettingsScreen(
                 }
             }
 
-            // OAuth toggle
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(stringResource(R.string.access_oauth_label), style = MaterialTheme.typography.bodyLarge)
-                    Text(
-                        stringResource(R.string.access_oauth_supporting),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Switch(
-                    checked = serverConfig.oauthEnabled,
-                    onCheckedChange = viewModel::requestSetOauthEnabled,
-                )
-            }
+            SettingsSwitchRow(
+                title = stringResource(R.string.access_oauth_label),
+                subtitle = stringResource(R.string.access_oauth_supporting),
+                checked = serverConfig.oauthEnabled,
+                onCheckedChange = viewModel::requestSetOauthEnabled,
+                help =
+                    HelpText(
+                        stringResource(R.string.access_oauth_label),
+                        stringResource(R.string.help_oauth),
+                    ),
+            )
 
             if (serverConfig.oauthEnabled) {
                 ListItem(
@@ -148,18 +147,16 @@ fun AccessSettingsScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Bearer toggle
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    stringResource(R.string.access_bearer_label),
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.weight(1f),
-                )
-                Switch(
-                    checked = serverConfig.bearerTokenEnabled,
-                    onCheckedChange = viewModel::requestSetBearerTokenEnabled,
-                )
-            }
+            SettingsSwitchRow(
+                title = stringResource(R.string.access_bearer_label),
+                checked = serverConfig.bearerTokenEnabled,
+                onCheckedChange = viewModel::requestSetBearerTokenEnabled,
+                help =
+                    HelpText(
+                        stringResource(R.string.access_bearer_label),
+                        stringResource(R.string.help_bearer_token),
+                    ),
+            )
 
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -217,6 +214,14 @@ fun AccessSettingsScreen(
                 label = { Text(stringResource(R.string.access_public_url_label)) },
                 supportingText = {
                     Text(publicUrlError ?: stringResource(R.string.access_public_url_supporting))
+                },
+                trailingIcon = {
+                    HelpHint(
+                        HelpText(
+                            stringResource(R.string.access_public_url_label),
+                            stringResource(R.string.help_public_url),
+                        ),
+                    )
                 },
                 isError = publicUrlError != null,
                 singleLine = true,

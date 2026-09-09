@@ -84,6 +84,7 @@ class StringResourceParityTest {
 
         private val SPECIFIER = Regex("""%\d+\$[sd]""")
 
+
         /**
          * Names that MUST resolve to the default locale everywhere.
          *

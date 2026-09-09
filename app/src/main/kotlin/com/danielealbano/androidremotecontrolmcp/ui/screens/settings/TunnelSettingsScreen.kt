@@ -57,6 +57,9 @@ import com.danielealbano.androidremotecontrolmcp.data.model.ServerStatus
 import com.danielealbano.androidremotecontrolmcp.data.model.TunnelProviderType
 import com.danielealbano.androidremotecontrolmcp.data.model.TunnelStatus
 import com.danielealbano.androidremotecontrolmcp.ui.components.DashboardPanel
+import com.danielealbano.androidremotecontrolmcp.ui.components.HelpHint
+import com.danielealbano.androidremotecontrolmcp.ui.components.HelpText
+import com.danielealbano.androidremotecontrolmcp.ui.components.LabelWithHelp
 import com.danielealbano.androidremotecontrolmcp.ui.components.SettingsSection
 import com.danielealbano.androidremotecontrolmcp.ui.components.SettingsSwitchRow
 import com.danielealbano.androidremotecontrolmcp.ui.viewmodels.MainViewModel
@@ -122,12 +125,24 @@ fun TunnelSettingsScreen(
                     checked = serverConfig.tunnelEnabled,
                     onCheckedChange = viewModel::updateTunnelEnabled,
                     enabled = sectionEnabled,
+                    help =
+                        HelpText(
+                            stringResource(R.string.remote_access_title),
+                            stringResource(R.string.help_tunnel),
+                        ),
                 )
             }
 
             AnimatedVisibility(visible = serverConfig.tunnelEnabled) {
                 Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
-                    SettingsSection(title = stringResource(R.string.remote_access_provider_label)) {
+                    SettingsSection(
+                        title = stringResource(R.string.remote_access_provider_label),
+                        help =
+                            HelpText(
+                                stringResource(R.string.remote_access_provider_label),
+                                stringResource(R.string.help_tunnel_provider),
+                            ),
+                    ) {
                         Column(
                             modifier = Modifier.selectableGroup().padding(vertical = 4.dp),
                         ) {
@@ -183,7 +198,14 @@ fun TunnelSettingsScreen(
                         }
                     }
 
-                    SettingsSection(title = stringResource(R.string.tunnel_configuration_title)) {
+                    SettingsSection(
+                        title = stringResource(R.string.tunnel_configuration_title),
+                        help =
+                            HelpText(
+                                stringResource(R.string.remote_access_cloudflare_mode_label),
+                                stringResource(R.string.help_cloudflare_mode),
+                            ),
+                    ) {
                         Column(
                             modifier = Modifier.padding(14.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -263,9 +285,13 @@ private fun NgrokConfigFields(
     var showAuthtoken by remember { mutableStateOf(false) }
 
     Column {
-        Text(
-            text = stringResource(R.string.remote_access_ngrok_authtoken_label),
-            style = MaterialTheme.typography.labelLarge,
+        LabelWithHelp(
+            label = stringResource(R.string.remote_access_ngrok_authtoken_label),
+            help =
+                HelpText(
+                    stringResource(R.string.remote_access_ngrok_authtoken_label),
+                    stringResource(R.string.help_ngrok_authtoken),
+                ),
         )
         Spacer(modifier = Modifier.height(4.dp))
         OutlinedTextField(
@@ -316,6 +342,14 @@ private fun NgrokConfigFields(
             enabled = enabled,
             placeholder = {
                 Text(text = stringResource(R.string.remote_access_ngrok_domain_hint))
+            },
+            trailingIcon = {
+                HelpHint(
+                    HelpText(
+                        stringResource(R.string.remote_access_ngrok_domain_label),
+                        stringResource(R.string.help_ngrok_domain),
+                    ),
+                )
             },
             modifier = Modifier.fillMaxWidth(),
         )
@@ -397,9 +431,13 @@ private fun CloudflareTokenFields(
     val clipboardManager = LocalClipboardManager.current
 
     Column {
-        Text(
-            text = stringResource(R.string.remote_access_cloudflare_token_label),
-            style = MaterialTheme.typography.labelLarge,
+        LabelWithHelp(
+            label = stringResource(R.string.remote_access_cloudflare_token_label),
+            help =
+                HelpText(
+                    stringResource(R.string.remote_access_cloudflare_token_label),
+                    stringResource(R.string.help_cloudflare_token),
+                ),
         )
         Spacer(modifier = Modifier.height(4.dp))
         OutlinedTextField(
@@ -465,9 +503,13 @@ private fun CloudflareExtraArgsField(
     onExtraArgsChange: (String) -> Unit,
 ) {
     Column {
-        Text(
-            text = stringResource(R.string.remote_access_cloudflare_extra_args_label),
-            style = MaterialTheme.typography.labelLarge,
+        LabelWithHelp(
+            label = stringResource(R.string.remote_access_cloudflare_extra_args_label),
+            help =
+                HelpText(
+                    stringResource(R.string.remote_access_cloudflare_extra_args_label),
+                    stringResource(R.string.help_cloudflare_extra_args),
+                ),
         )
         Spacer(modifier = Modifier.height(4.dp))
         OutlinedTextField(

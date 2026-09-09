@@ -51,6 +51,8 @@ import com.danielealbano.androidremotecontrolmcp.data.model.OptionalToolPermissi
 import com.danielealbano.androidremotecontrolmcp.data.model.ServerStatus
 import com.danielealbano.androidremotecontrolmcp.data.model.ToolPermissionsConfig
 import com.danielealbano.androidremotecontrolmcp.ui.components.DashboardPanel
+import com.danielealbano.androidremotecontrolmcp.ui.components.HelpHint
+import com.danielealbano.androidremotecontrolmcp.ui.components.HelpText
 import com.danielealbano.androidremotecontrolmcp.ui.components.SectionIntro
 import com.danielealbano.androidremotecontrolmcp.ui.components.TileLabel
 import com.danielealbano.androidremotecontrolmcp.ui.theme.WarningAmber
@@ -288,7 +290,18 @@ fun McpToolsSettingsScreen(
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
             item {
-                SectionIntro(stringResource(R.string.mcp_tools_restart_hint))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    SectionIntro(
+                        stringResource(R.string.mcp_tools_restart_hint),
+                        modifier = Modifier.weight(1f),
+                    )
+                    HelpHint(
+                        HelpText(
+                            stringResource(R.string.settings_mcp_tools_title),
+                            stringResource(R.string.help_mcp_tool),
+                        ),
+                    )
+                }
             }
             // One item per category, not per tool: a category is at most ten rows, and keeping it
             // whole is what lets it be drawn as a single panel.
