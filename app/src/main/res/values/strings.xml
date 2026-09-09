@@ -28,6 +28,23 @@
     <string name="settings_security_subtitle">HTTPS, certificate</string>
     <string name="settings_tunnel_title">Tunnel</string>
     <string name="settings_tunnel_subtitle">Cloudflare, ngrok</string>
+    <!-- MCP tool categories -->
+    <string name="mcp_category_screen">Screen</string>
+    <string name="mcp_category_system">System</string>
+    <string name="mcp_category_touch">Touch</string>
+    <string name="mcp_category_gestures">Gestures</string>
+    <string name="mcp_category_node_actions">Node Actions</string>
+    <string name="mcp_category_text_input">Text Input</string>
+    <string name="mcp_category_utility">Utility</string>
+    <string name="mcp_category_file_operations">File Operations</string>
+    <string name="mcp_category_quarantine">Quarantine</string>
+    <string name="mcp_category_app_management">App Management</string>
+    <string name="mcp_category_camera">Camera</string>
+    <string name="mcp_category_intent">Intent</string>
+    <string name="mcp_category_notifications">Notifications</string>
+    <string name="mcp_category_location">Location</string>
+    <string name="mcp_category_sharing">Sharing</string>
+
     <string name="settings_mcp_tools_title">MCP Tools</string>
     <string name="settings_mcp_tools_subtitle">Enable or disable tools</string>
     <string name="settings_mcp_tools_placeholder">Tool permissions — available in next update</string>
@@ -227,6 +244,7 @@
     <string name="remote_access_status_connecting">Connecting…</string>
     <string name="remote_access_status_connected">Connected</string>
     <string name="remote_access_status_error">Error: %1$s</string>
+    <string name="tunnel_configuration_title">Configuration</string>
     <string name="remote_access_public_url_label">Public URL</string>
     <string name="remote_access_ngrok_unsupported">ngrok is not available on this device (requires arm64-v8a or x86_64)</string>
     <string name="remote_access_cloudflare_mode_label">Cloudflare Mode</string>
@@ -283,6 +301,7 @@
     <string name="storage_builtin_grant_all_files">Grant access to all files</string>
     <string name="storage_builtin_all_files_granted">All files access granted</string>
     <string name="storage_builtin_manage_access">Manage access</string>
+    <string name="storage_limits_title">Limits and downloads</string>
     <string name="storage_file_size_limit_label">File Size Limit (MB)</string>
     <string name="storage_file_size_limit_error">Must be between %1$d and %2$d MB</string>
     <string name="storage_download_timeout_label">Download Timeout (seconds)</string>

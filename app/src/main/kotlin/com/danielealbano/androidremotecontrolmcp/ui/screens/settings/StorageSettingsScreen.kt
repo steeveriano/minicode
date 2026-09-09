@@ -65,6 +65,10 @@ import com.danielealbano.androidremotecontrolmcp.data.model.BuiltinAccessLevel
 import com.danielealbano.androidremotecontrolmcp.data.model.BuiltinStorageLocation
 import com.danielealbano.androidremotecontrolmcp.data.model.StorageLocation
 import com.danielealbano.androidremotecontrolmcp.services.storage.StorageLocationProvider
+import com.danielealbano.androidremotecontrolmcp.ui.components.PermissionTogglePair
+import com.danielealbano.androidremotecontrolmcp.ui.components.SectionIntro
+import com.danielealbano.androidremotecontrolmcp.ui.components.SettingsSection
+import com.danielealbano.androidremotecontrolmcp.ui.components.SettingsSwitchRow
 import com.danielealbano.androidremotecontrolmcp.ui.viewmodels.MainViewModel
 import kotlinx.coroutines.launch
 
@@ -148,180 +152,129 @@ fun StorageSettingsScreen(
                     Modifier
                         .weight(1f)
                         .verticalScroll(rememberScrollState())
-                        .padding(16.dp),
+                        .padding(horizontal = 16.dp)
+                        .padding(bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp),
             ) {
                 val builtinLocations = storageLocations.filter { it.isBuiltin }
                 val userLocations = storageLocations.filter { !it.isBuiltin }
 
-                // ── Built-in Locations Section ──────────────────────────────
-                Text(
-                    text = stringResource(R.string.storage_builtin_locations_title),
-                    style = MaterialTheme.typography.titleLarge,
-                )
-                Text(
-                    text = stringResource(R.string.storage_builtin_locations_description),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                builtinLocations.forEach { location ->
-                    val builtin = BuiltinStorageLocation.fromLocationId(location.id)
-                    val readMediaPermissions =
-                        builtin
-                            ?.collections
-                            ?.mapNotNull { it.readMediaPermission }
-                            ?.distinct()
-                            .orEmpty()
-                    val requestPermissions = builtinRequestPermissions(builtin)
-                    BuiltinStorageLocationRow(
-                        location = location,
-                        accessLevel = location.accessLevel,
-                        readMediaPermissions = readMediaPermissions,
-                        requestPermissions = requestPermissions,
-                        onAllowWriteChange = { enabled ->
-                            viewModel.updateLocationAllowWrite(location.id, enabled)
-                        },
-                        onAllowDeleteChange = { enabled ->
-                            viewModel.updateLocationAllowDelete(location.id, enabled)
-                        },
-                        onRequestPermission = { permissions ->
-                            permissionLauncher.launch(permissions.toTypedArray())
-                        },
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-                HorizontalDivider()
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // ── User Locations Section ──────────────────────────────────
-                Text(
-                    text = stringResource(R.string.storage_user_locations_title),
-                    style = MaterialTheme.typography.titleLarge,
-                )
-                Text(
-                    text = stringResource(R.string.storage_locations_description),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                OutlinedButton(onClick = {
-                    addDialogDescription = ""
-                    addDialogSelectedUri = null
-                    addDialogSelectedName = null
-                    addDialogDuplicateError = false
-                    addDialogDuplicateChecking = false
-                    showAddDialog = true
-                }) {
-                    Icon(imageVector = Icons.Default.Add, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(stringResource(R.string.storage_location_add_button))
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                if (userLocations.isEmpty()) {
-                    Text(
-                        text = stringResource(R.string.storage_location_no_locations),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                } else {
-                    userLocations.forEach { location ->
-                        StorageLocationRow(
-                            location = location,
-                            onEdit = {
-                                editDialogLocation = location
-                                editDialogDescription = location.description
-                                showEditDialog = true
-                            },
-                            onDelete = {
-                                deleteDialogLocation = location
-                                showDeleteDialog = true
-                            },
-                            onAllowWriteChange = { enabled ->
-                                viewModel.updateLocationAllowWrite(location.id, enabled)
-                            },
-                            onAllowDeleteChange = { enabled ->
-                                viewModel.updateLocationAllowDelete(location.id, enabled)
-                            },
-                        )
+                Column {
+                    SectionIntro(stringResource(R.string.storage_builtin_locations_description))
+                    SettingsSection(title = stringResource(R.string.storage_builtin_locations_title)) {
+                        builtinLocations.forEachIndexed { index, location ->
+                            val builtin = BuiltinStorageLocation.fromLocationId(location.id)
+                            BuiltinStorageLocationRow(
+                                location = location,
+                                accessLevel = location.accessLevel,
+                                readMediaPermissions =
+                                    builtin
+                                        ?.collections
+                                        ?.mapNotNull { it.readMediaPermission }
+                                        ?.distinct()
+                                        .orEmpty(),
+                                requestPermissions = builtinRequestPermissions(builtin),
+                                onAllowWriteChange = { enabled ->
+                                    viewModel.updateLocationAllowWrite(location.id, enabled)
+                                },
+                                onAllowDeleteChange = { enabled ->
+                                    viewModel.updateLocationAllowDelete(location.id, enabled)
+                                },
+                                onRequestPermission = { permissions ->
+                                    permissionLauncher.launch(permissions.toTypedArray())
+                                },
+                                showDivider = index < builtinLocations.lastIndex,
+                            )
+                        }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
-                HorizontalDivider()
-                Spacer(modifier = Modifier.height(16.dp))
+                Column {
+                    SectionIntro(stringResource(R.string.storage_locations_description))
+                    SettingsSection(title = stringResource(R.string.storage_user_locations_title)) {
+                        if (userLocations.isEmpty()) {
+                            Text(
+                                text = stringResource(R.string.storage_location_no_locations),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(14.dp),
+                            )
+                        } else {
+                            userLocations.forEachIndexed { index, location ->
+                                StorageLocationRow(
+                                    location = location,
+                                    onEdit = {
+                                        editDialogLocation = location
+                                        editDialogDescription = location.description
+                                        showEditDialog = true
+                                    },
+                                    onDelete = {
+                                        deleteDialogLocation = location
+                                        showDeleteDialog = true
+                                    },
+                                    onAllowWriteChange = { enabled ->
+                                        viewModel.updateLocationAllowWrite(location.id, enabled)
+                                    },
+                                    onAllowDeleteChange = { enabled ->
+                                        viewModel.updateLocationAllowDelete(location.id, enabled)
+                                    },
+                                    showDivider = index < userLocations.lastIndex,
+                                )
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    OutlinedButton(
+                        onClick = {
+                            addDialogDescription = ""
+                            addDialogSelectedUri = null
+                            addDialogSelectedName = null
+                            addDialogDuplicateError = false
+                            addDialogDuplicateChecking = false
+                            showAddDialog = true
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Icon(imageVector = Icons.Default.Add, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(stringResource(R.string.storage_location_add_button))
+                    }
+                }
 
-                OutlinedTextField(
-                    value = fileSizeLimitInput,
-                    onValueChange = viewModel::updateFileSizeLimit,
-                    label = { Text(stringResource(R.string.storage_file_size_limit_label)) },
-                    isError = fileSizeLimitError != null,
-                    supportingText = fileSizeLimitError?.let { { Text(it) } },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                OutlinedTextField(
-                    value = downloadTimeoutInput,
-                    onValueChange = viewModel::updateDownloadTimeout,
-                    label = { Text(stringResource(R.string.storage_download_timeout_label)) },
-                    isError = downloadTimeoutError != null,
-                    supportingText = downloadTimeoutError?.let { { Text(it) } },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = stringResource(R.string.storage_allow_http_downloads_label),
-                            style = MaterialTheme.typography.bodyLarge,
+                SettingsSection(title = stringResource(R.string.storage_limits_title)) {
+                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        OutlinedTextField(
+                            value = fileSizeLimitInput,
+                            onValueChange = viewModel::updateFileSizeLimit,
+                            label = { Text(stringResource(R.string.storage_file_size_limit_label)) },
+                            isError = fileSizeLimitError != null,
+                            supportingText = fileSizeLimitError?.let { { Text(it) } },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
                         )
-                        Text(
-                            text = stringResource(R.string.storage_allow_http_downloads_description),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        OutlinedTextField(
+                            value = downloadTimeoutInput,
+                            onValueChange = viewModel::updateDownloadTimeout,
+                            label = { Text(stringResource(R.string.storage_download_timeout_label)) },
+                            isError = downloadTimeoutError != null,
+                            supportingText = downloadTimeoutError?.let { { Text(it) } },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
                         )
                     }
-                    Switch(
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    SettingsSwitchRow(
+                        title = stringResource(R.string.storage_allow_http_downloads_label),
+                        subtitle = stringResource(R.string.storage_allow_http_downloads_description),
                         checked = serverConfig.allowHttpDownloads,
                         onCheckedChange = viewModel::updateAllowHttpDownloads,
+                        showDivider = true,
                     )
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = stringResource(R.string.storage_allow_unverified_https_label),
-                            style = MaterialTheme.typography.bodyLarge,
-                        )
-                        Text(
-                            text = stringResource(R.string.storage_allow_unverified_https_description),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    Switch(
+                    SettingsSwitchRow(
+                        title = stringResource(R.string.storage_allow_unverified_https_label),
+                        subtitle = stringResource(R.string.storage_allow_unverified_https_description),
                         checked = serverConfig.allowUnverifiedHttpsCerts,
                         onCheckedChange = viewModel::updateAllowUnverifiedHttpsCerts,
                     )
@@ -512,12 +465,13 @@ private fun StorageLocationRow(
     onDelete: () -> Unit,
     onAllowWriteChange: (Boolean) -> Unit,
     onAllowDeleteChange: (Boolean) -> Unit,
+    showDivider: Boolean = false,
 ) {
     Column(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .padding(vertical = 4.dp),
+                .padding(horizontal = 14.dp, vertical = 10.dp),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -556,55 +510,17 @@ private fun StorageLocationRow(
                 )
             }
         }
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(start = 0.dp, top = 2.dp, bottom = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Row(
-                modifier =
-                    Modifier.toggleable(
-                        value = location.allowWrite,
-                        role = Role.Switch,
-                        onValueChange = onAllowWriteChange,
-                    ),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = stringResource(R.string.storage_location_allow_write_label),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Switch(
-                    checked = location.allowWrite,
-                    onCheckedChange = null,
-                )
-            }
-            Row(
-                modifier =
-                    Modifier.toggleable(
-                        value = location.allowDelete,
-                        role = Role.Switch,
-                        onValueChange = onAllowDeleteChange,
-                    ),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = stringResource(R.string.storage_location_allow_delete_label),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Switch(
-                    checked = location.allowDelete,
-                    onCheckedChange = null,
-                )
-            }
-        }
+        PermissionTogglePair(
+            firstLabel = stringResource(R.string.storage_location_allow_write_label),
+            firstChecked = location.allowWrite,
+            onFirstChange = onAllowWriteChange,
+            secondLabel = stringResource(R.string.storage_location_allow_delete_label),
+            secondChecked = location.allowDelete,
+            onSecondChange = onAllowDeleteChange,
+        )
+    }
+    if (showDivider) {
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
 }
 
@@ -618,12 +534,13 @@ private fun BuiltinStorageLocationRow(
     onAllowWriteChange: (Boolean) -> Unit,
     onAllowDeleteChange: (Boolean) -> Unit,
     onRequestPermission: (List<String>) -> Unit,
+    showDivider: Boolean = false,
 ) {
     Column(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .padding(vertical = 4.dp),
+                .padding(horizontal = 14.dp, vertical = 10.dp),
     ) {
         Text(
             text = location.name,
@@ -635,55 +552,14 @@ private fun BuiltinStorageLocationRow(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(top = 2.dp, bottom = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Row(
-                modifier =
-                    Modifier.toggleable(
-                        value = location.allowWrite,
-                        role = Role.Switch,
-                        onValueChange = onAllowWriteChange,
-                    ),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = stringResource(R.string.storage_location_allow_write_label),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Switch(
-                    checked = location.allowWrite,
-                    onCheckedChange = null,
-                )
-            }
-            Row(
-                modifier =
-                    Modifier.toggleable(
-                        value = location.allowDelete,
-                        role = Role.Switch,
-                        onValueChange = onAllowDeleteChange,
-                    ),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = stringResource(R.string.storage_location_allow_delete_label),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Switch(
-                    checked = location.allowDelete,
-                    onCheckedChange = null,
-                )
-            }
-        }
+        PermissionTogglePair(
+            firstLabel = stringResource(R.string.storage_location_allow_write_label),
+            firstChecked = location.allowWrite,
+            onFirstChange = onAllowWriteChange,
+            secondLabel = stringResource(R.string.storage_location_allow_delete_label),
+            secondChecked = location.allowDelete,
+            onSecondChange = onAllowDeleteChange,
+        )
         if (readMediaPermissions.isNotEmpty()) {
             OutlinedButton(
                 onClick = { onRequestPermission(requestPermissions) },
@@ -693,6 +569,9 @@ private fun BuiltinStorageLocationRow(
                 Text(stringResource(builtinGrantButtonLabelRes(accessLevel)))
             }
         }
+    }
+    if (showDivider) {
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
 }
 

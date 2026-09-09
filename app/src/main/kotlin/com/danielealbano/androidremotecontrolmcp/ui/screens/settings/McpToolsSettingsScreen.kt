@@ -2,19 +2,26 @@
 
 package com.danielealbano.androidremotecontrolmcp.ui.screens.settings
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -43,6 +50,9 @@ import com.danielealbano.androidremotecontrolmcp.data.model.OptionalToolPermissi
 import com.danielealbano.androidremotecontrolmcp.data.model.OptionalToolPermissions
 import com.danielealbano.androidremotecontrolmcp.data.model.ServerStatus
 import com.danielealbano.androidremotecontrolmcp.data.model.ToolPermissionsConfig
+import com.danielealbano.androidremotecontrolmcp.ui.components.DashboardPanel
+import com.danielealbano.androidremotecontrolmcp.ui.components.SectionIntro
+import com.danielealbano.androidremotecontrolmcp.ui.components.TileLabel
 import com.danielealbano.androidremotecontrolmcp.ui.theme.WarningAmber
 import com.danielealbano.androidremotecontrolmcp.ui.viewmodels.MainViewModel
 
@@ -58,14 +68,19 @@ private data class ToolEntry(
 )
 
 private data class ToolCategory(
-    val header: String,
+    /**
+     * The group's name. A string resource, unlike the tool and parameter names below: a category is
+     * this screen's own copy, while a tool's name is the MCP identifier a client sees on the wire,
+     * and translating those would leave the two halves of a pairing unable to refer to each other.
+     */
+    @StringRes val headerRes: Int,
     val tools: List<ToolEntry>,
 )
 
 private val ALL_TOOL_CATEGORIES: List<ToolCategory> =
     listOf(
         ToolCategory(
-            "Screen",
+            R.string.mcp_category_screen,
             listOf(
                 ToolEntry(
                     "get_screen_state",
@@ -75,7 +90,7 @@ private val ALL_TOOL_CATEGORIES: List<ToolCategory> =
             ),
         ),
         ToolCategory(
-            "System",
+            R.string.mcp_category_system,
             listOf(
                 ToolEntry("press_back", "Press Back"),
                 ToolEntry("press_home", "Press Home"),
@@ -86,7 +101,7 @@ private val ALL_TOOL_CATEGORIES: List<ToolCategory> =
             ),
         ),
         ToolCategory(
-            "Touch",
+            R.string.mcp_category_touch,
             listOf(
                 ToolEntry("tap", "Tap"),
                 ToolEntry("long_press", "Long Press"),
@@ -96,14 +111,14 @@ private val ALL_TOOL_CATEGORIES: List<ToolCategory> =
             ),
         ),
         ToolCategory(
-            "Gestures",
+            R.string.mcp_category_gestures,
             listOf(
                 ToolEntry("pinch", "Pinch"),
                 ToolEntry("custom_gesture", "Custom Gesture"),
             ),
         ),
         ToolCategory(
-            "Node Actions",
+            R.string.mcp_category_node_actions,
             listOf(
                 ToolEntry("find_nodes", "Find Nodes"),
                 ToolEntry("click_node", "Click Node"),
@@ -113,7 +128,7 @@ private val ALL_TOOL_CATEGORIES: List<ToolCategory> =
             ),
         ),
         ToolCategory(
-            "Text Input",
+            R.string.mcp_category_text_input,
             listOf(
                 ToolEntry("type_append_text", "Type Append Text"),
                 ToolEntry("type_insert_text", "Type Insert Text"),
@@ -123,7 +138,7 @@ private val ALL_TOOL_CATEGORIES: List<ToolCategory> =
             ),
         ),
         ToolCategory(
-            "Utility",
+            R.string.mcp_category_utility,
             listOf(
                 ToolEntry("get_clipboard", "Get Clipboard"),
                 ToolEntry("set_clipboard", "Set Clipboard"),
@@ -133,7 +148,7 @@ private val ALL_TOOL_CATEGORIES: List<ToolCategory> =
             ),
         ),
         ToolCategory(
-            "File Operations",
+            R.string.mcp_category_file_operations,
             listOf(
                 ToolEntry("list_storage_locations", "List Storage Locations"),
                 ToolEntry("list_files", "List Files"),
@@ -148,7 +163,7 @@ private val ALL_TOOL_CATEGORIES: List<ToolCategory> =
             ),
         ),
         ToolCategory(
-            "Quarantine",
+            R.string.mcp_category_quarantine,
             listOf(
                 ToolEntry("quarantine_files", "Quarantine Files"),
                 ToolEntry("list_quarantine_batches", "List Quarantine Batches"),
@@ -157,7 +172,7 @@ private val ALL_TOOL_CATEGORIES: List<ToolCategory> =
             ),
         ),
         ToolCategory(
-            "App Management",
+            R.string.mcp_category_app_management,
             listOf(
                 ToolEntry("open_app", "Open App"),
                 ToolEntry("list_apps", "List Apps"),
@@ -165,7 +180,7 @@ private val ALL_TOOL_CATEGORIES: List<ToolCategory> =
             ),
         ),
         ToolCategory(
-            "Camera",
+            R.string.mcp_category_camera,
             listOf(
                 ToolEntry("list_cameras", "List Cameras"),
                 ToolEntry("list_camera_photo_resolutions", "List Camera Photo Resolutions"),
@@ -180,14 +195,14 @@ private val ALL_TOOL_CATEGORIES: List<ToolCategory> =
             ),
         ),
         ToolCategory(
-            "Intent",
+            R.string.mcp_category_intent,
             listOf(
                 ToolEntry("send_intent", "Send Intent"),
                 ToolEntry("open_uri", "Open URI"),
             ),
         ),
         ToolCategory(
-            "Notifications",
+            R.string.mcp_category_notifications,
             listOf(
                 ToolEntry("notification_list", "Notification List"),
                 ToolEntry("notification_open", "Notification Open"),
@@ -198,7 +213,7 @@ private val ALL_TOOL_CATEGORIES: List<ToolCategory> =
             ),
         ),
         ToolCategory(
-            "Location",
+            R.string.mcp_category_location,
             listOf(
                 ToolEntry(
                     "get_location",
@@ -208,7 +223,7 @@ private val ALL_TOOL_CATEGORIES: List<ToolCategory> =
             ),
         ),
         ToolCategory(
-            "Sharing",
+            R.string.mcp_category_sharing,
             listOf(
                 ToolEntry("get_shared_content", "Get Shared Content"),
                 ToolEntry("share_file_via_web", "Share File via Web"),
@@ -267,36 +282,42 @@ fun McpToolsSettingsScreen(
             windowInsets = WindowInsets(0),
             colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
         )
-        LazyColumn(modifier = Modifier.weight(1f)) {
+        LazyColumn(
+            modifier = Modifier.weight(1f),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+        ) {
             item {
-                Text(
-                    text = stringResource(R.string.mcp_tools_restart_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                )
+                SectionIntro(stringResource(R.string.mcp_tools_restart_hint))
             }
-            ALL_TOOL_CATEGORIES.forEach { category ->
+            // One item per category, not per tool: a category is at most ten rows, and keeping it
+            // whole is what lets it be drawn as a single panel.
+            items(ALL_TOOL_CATEGORIES, key = { it.headerRes }) { category ->
                 val categoryPermissions =
                     category.tools.mapNotNull { OptionalToolPermissions.permissionForTool(it.toolName) }.distinct()
-                item(key = "header_${category.header}") {
+                Column {
                     ToolCategoryHeader(
-                        header = category.header,
+                        header = stringResource(category.headerRes),
                         missingPermission = categoryPermissions.any { !isGranted(it) },
                         onNavigateToPermissions = onNavigateToPermissions,
                     )
-                }
-                items(category.tools, key = { it.toolName }) { tool ->
-                    ToolRow(
-                        tool = tool,
-                        perms = perms,
-                        controlsEnabled = controlsEnabled,
-                        categoryGranted = categoryPermissions.all { isGranted(it) },
-                        isGranted = isGranted,
-                        onNavigateToPermissions = onNavigateToPermissions,
-                        onToolToggle = viewModel::updateToolEnabled,
-                        onParamToggle = viewModel::updateParamEnabled,
-                    )
+                    DashboardPanel {
+                        Column {
+                            category.tools.forEachIndexed { index, tool ->
+                                ToolRow(
+                                    tool = tool,
+                                    perms = perms,
+                                    controlsEnabled = controlsEnabled,
+                                    categoryGranted = categoryPermissions.all { isGranted(it) },
+                                    isGranted = isGranted,
+                                    onNavigateToPermissions = onNavigateToPermissions,
+                                    onToolToggle = viewModel::updateToolEnabled,
+                                    onParamToggle = viewModel::updateParamEnabled,
+                                    showDivider = index < category.tools.lastIndex,
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -324,44 +345,31 @@ private fun ToolCategoryHeader(
     missingPermission: Boolean,
     onNavigateToPermissions: () -> Unit,
 ) {
-    // Match the warning triangle to the header text size (respects font scaling).
-    val warningIconSize =
-        with(LocalDensity.current) {
-            MaterialTheme.typography.titleMedium.fontSize
-                .toDp()
-        }
     if (!missingPermission) {
-        Text(
-            text = header,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp),
-        )
+        TileLabel(header, modifier = Modifier.padding(start = 4.dp, bottom = 8.dp))
         return
     }
-    Column(modifier = Modifier.clickable { onNavigateToPermissions() }) {
-        Row(
-            modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = header,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(end = 8.dp),
-            )
+    Column(
+        modifier =
+            Modifier
+                .clickable { onNavigateToPermissions() }
+                .padding(start = 4.dp, bottom = 8.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            TileLabel(header)
+            Spacer(Modifier.width(6.dp))
             Icon(
                 imageVector = Icons.Default.Warning,
                 contentDescription = null,
                 tint = WarningAmber,
-                modifier = Modifier.size(warningIconSize),
+                modifier = Modifier.size(14.dp),
             )
         }
+        Spacer(Modifier.height(2.dp))
         Text(
             text = stringResource(R.string.settings_mcp_tools_missing_permission),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 4.dp),
         )
     }
 }
@@ -376,6 +384,7 @@ private fun ToolRow(
     onNavigateToPermissions: () -> Unit,
     onToolToggle: (String, Boolean) -> Unit,
     onParamToggle: (String, String, Boolean) -> Unit,
+    showDivider: Boolean = false,
 ) {
     val toolEnabled = perms.isToolEnabled(tool.toolName)
     ListItem(
@@ -401,6 +410,9 @@ private fun ToolRow(
                 onParamToggle = onParamToggle,
             )
         }
+    }
+    if (showDivider) {
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
 }
 

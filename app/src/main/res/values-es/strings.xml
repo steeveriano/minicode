@@ -34,6 +34,23 @@
     <string name="settings_security_subtitle">HTTPS, certificado</string>
     <string name="settings_tunnel_title">Túnel</string>
     <string name="settings_tunnel_subtitle">Cloudflare, ngrok</string>
+    <!-- MCP tool categories -->
+    <string name="mcp_category_screen">Pantalla</string>
+    <string name="mcp_category_system">Sistema</string>
+    <string name="mcp_category_touch">Toques</string>
+    <string name="mcp_category_gestures">Gestos</string>
+    <string name="mcp_category_node_actions">Acciones sobre elementos</string>
+    <string name="mcp_category_text_input">Entrada de texto</string>
+    <string name="mcp_category_utility">Utilidades</string>
+    <string name="mcp_category_file_operations">Archivos</string>
+    <string name="mcp_category_quarantine">Cuarentena</string>
+    <string name="mcp_category_app_management">Aplicaciones</string>
+    <string name="mcp_category_camera">Cámara</string>
+    <string name="mcp_category_intent">Intents</string>
+    <string name="mcp_category_notifications">Notificaciones</string>
+    <string name="mcp_category_location">Ubicación</string>
+    <string name="mcp_category_sharing">Compartir</string>
+
     <string name="settings_mcp_tools_title">Herramientas MCP</string>
     <string name="settings_mcp_tools_subtitle">Activar o desactivar herramientas</string>
     <string name="settings_mcp_tools_placeholder">Permisos por herramienta — disponible en la próxima actualización</string>
@@ -229,6 +246,7 @@
     <string name="remote_access_status_connecting">Conectando…</string>
     <string name="remote_access_status_connected">Conectado</string>
     <string name="remote_access_status_error">Error: %1$s</string>
+    <string name="tunnel_configuration_title">Configuración</string>
     <string name="remote_access_public_url_label">URL pública</string>
     <string name="remote_access_ngrok_unsupported">ngrok no está disponible en este dispositivo (requiere arm64-v8a o x86_64)</string>
     <string name="remote_access_cloudflare_mode_label">Modo de Cloudflare</string>
@@ -283,6 +301,7 @@
     <string name="storage_builtin_grant_all_files">Conceder acceso a todos los archivos</string>
     <string name="storage_builtin_all_files_granted">Acceso a todos los archivos concedido</string>
     <string name="storage_builtin_manage_access">Gestionar acceso</string>
+    <string name="storage_limits_title">Límites y descargas</string>
     <string name="storage_file_size_limit_label">Tamaño máximo de archivo (MB)</string>
     <string name="storage_file_size_limit_error">Debe estar entre %1$d y %2$d MB</string>
     <string name="storage_download_timeout_label">Tiempo límite de descarga (segundos)</string>
