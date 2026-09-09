@@ -11,8 +11,18 @@ desincronizarse en silencio: un campo renombrado en el dispositivo rompe el `tsc
 
 ## Configuración
 
-`cp .env.example .env`. Las credenciales de ahí son publicables por diseño: identifican al proyecto,
-no a una persona. En Netlify van como variables de entorno del sitio.
+Ninguna. `.env.production` está commiteado y el build lo toma solo.
+
+Esas dos credenciales **no son secretas**: identifican al proyecto, no a una persona, y Vite las
+inlinea en el JavaScript, así que son legibles por cualquiera que abra el sitio, estén en el repo o
+no. Lo que protege los datos no es esa clave —es `device_storage.viewers`, verificada en el
+servidor en cada pedido.
+
+La clave de servicio de Supabase es harina de otro costal: saltea row level security y **nunca** se
+commitea. Vive solo en el entorno de quien corre la captura.
+
+Para desarrollo local con otro proyecto: `cp .env.example .env` (ignorado por git) o variables de
+entorno en Netlify — cualquiera de las dos le gana a `.env.production`.
 
 ## La página no habla con el teléfono
 
