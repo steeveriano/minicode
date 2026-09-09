@@ -1,5 +1,5 @@
 import type { Config } from '@netlify/functions';
-import { bearerFrom, deviceFor, isViewer, json } from './_device.mts';
+import { bearerFrom, deviceFor, isViewer, json } from './lib/device.mts';
 
 /** How long to wait on a health probe. Short on purpose: this answers "is it up", not "do work". */
 const HEALTH_TIMEOUT_MS = 8_000;

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { ALLOWED_TOOLS, bearerFrom, deviceFor, rejectionReason } from './_device.mts';
+import { ALLOWED_TOOLS, bearerFrom, deviceFor, rejectionReason } from './device.mts';
 
 const ENV_KEYS = ['DEVICE_CELULAR_URL', 'DEVICE_CELULAR_TOKEN', 'DEVICE_MI_PC_URL', 'DEVICE_MI_PC_TOKEN'];
 

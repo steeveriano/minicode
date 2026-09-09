@@ -1,5 +1,5 @@
 import type { Config } from '@netlify/functions';
-import { DEVICE_TIMEOUT_MS, bearerFrom, deviceFor, isViewer, json, rejectionReason } from './_device.mts';
+import { DEVICE_TIMEOUT_MS, bearerFrom, deviceFor, isViewer, json, rejectionReason } from './lib/device.mts';
 
 /**
  * Authenticated proxy from the panel to one device's MCP server.
