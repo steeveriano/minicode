@@ -11,6 +11,14 @@ The app runs directly on your Android device (or emulator) and exposes an HTTP s
 
 ---
 
+## Origin
+
+This is a fork of [danielealbano/android-remote-control-mcp](https://github.com/danielealbano/android-remote-control-mcp), created and maintained by **Daniele Salvatore Albano**, who wrote the MCP server, the accessibility layer, the tunnels and Privacy Mode that everything here is built on.
+
+The fork adds storage analysis and organisation tooling and a Spanish translation. It stays under the original MIT licence, and the upstream copyright in [LICENSE.md](LICENSE.md) is unchanged — see [Credits](#credits).
+
+---
+
 ## Contents
 
 - [Demo](#demo)
@@ -577,6 +585,12 @@ Storage locations are configured in Settings > Storage, which includes automatic
 See [CONTRIBUTING.md](CONTRIBUTING.md) for build requirements, testing, architecture, and development conventions.
 
 ---
+
+## Credits
+
+The original **Android Remote Control MCP** is the work of [Daniele Salvatore Albano](https://github.com/danielealbano) — the MCP server and tool surface, the accessibility service, the Cloudflare and ngrok tunnels, OAuth, and Privacy Mode. This fork builds on all of it.
+
+Bundled third-party work is credited in the app's About screen: IP geolocation data by [DB-IP](https://db-ip.com) (CC BY 4.0), and the Privacy Mode PII detection model by [Ai4Privacy](https://huggingface.co/ai4privacy) (MIT, built with Llama).
 
 ## License
 

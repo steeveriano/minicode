@@ -21,6 +21,7 @@ import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
 import android.widget.TextView
+import com.danielealbano.androidremotecontrolmcp.R
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
@@ -248,7 +249,7 @@ class McpAccessibilityService : AccessibilityService() {
     private fun showToolCallIndicatorInternal(toolName: String) {
         val windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
         val textView = (toolCallIndicatorView as? TextView) ?: createToolCallIndicatorView()
-        textView.text = "MCP controlling · ${formatToolName(toolName)}"
+        textView.text = getString(R.string.tool_call_indicator_text, formatToolName(toolName))
         if (toolCallIndicatorView == null) {
             runCatching {
                 windowManager.addView(textView, createToolCallIndicatorLayoutParams())

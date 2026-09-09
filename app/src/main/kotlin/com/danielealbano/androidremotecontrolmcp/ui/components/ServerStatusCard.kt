@@ -56,7 +56,7 @@ fun ServerStatusCard(
             modifier = Modifier.padding(16.dp),
         ) {
             Text(
-                text = "Services Status",
+                text = stringResource(R.string.services_status_title),
                 style = MaterialTheme.typography.titleLarge,
             )
 

@@ -57,6 +57,9 @@
     <string name="copied_to_clipboard">Copied to clipboard</string>
 
     <!-- Server Status -->
+    <string name="services_status_title">Services Status</string>
+    <string name="mcp_tools_restart_hint">Changes take effect on server restart</string>
+    <string name="tool_call_indicator_text">MCP controlling · %1$s</string>
     <string name="server_status_title">Server Status</string>
     <string name="server_status_running">Running</string>
     <string name="server_status_stopped">Stopped</string>
