@@ -1252,3 +1252,72 @@ Run only after every user story above is implemented.
 3. **`docs/seeds/pc_baseline_20260909.json`.** Contract §8 gives totals but not the 207 REVIEW rows
    or the per-`media_id` detail. Confirm whether the engine exports that file, or whether the seed
    should carry aggregates and opportunities only, with REVIEW arriving on the engine's first run.
+
+---
+
+# Review findings — `plan-reviewer`, 2026-09-09
+
+**Verdict: this plan is NOT executable as written.** 20 CRITICAL, 44 WARNING, 20 INFO.
+It is superseded by plan 70. This document is retained as the permanent record of the design
+decisions that survived and the errors that did not.
+
+## Independently verified against the codebase and the live database
+
+| Finding | Claim | Verified |
+|---|---|---|
+| C8 | `StorageLocationProvider` has `getAllLocations()`, not `listLocations()` | CONFIRMED — `StorageLocationProvider.kt:19` |
+| C8 | No extension-histogram walker exists anywhere in `app/src/main` | CONFIRMED — the only `histogram` is `TreeFingerprint.kt`, unrelated. The histograms used during the phone census were computed off-device by ad-hoc scripts, never by the app. Action 2.2.2 called it "existing"; it is not. |
+| C9 | `FileOperationProvider` has no streaming read; only `readFileBytes` (whole `ByteArray`) and line-paginated `readFile` | CONFIRMED — `FileOperationProvider.kt:243,259`. Action 2.4.1's streaming SHA-256 is unimplementable without a new API, and the 50 MB default file-size limit would reject large media outright. |
+| C11 | `for update skip locked` placed before `limit` is a PostgreSQL syntax error | CONFIRMED — the locking clause must follow `LIMIT`. Migration `0003` would not apply. |
+| C13 | No `supabase/` directory, no CLI config, no `0001` migration | CONFIRMED |
+| W12 | WorkManager and `hilt-work` are already declared | CONFIRMED — `libs.versions.toml:53,169,173`; `app/build.gradle.kts:442-444`, used by `UpdateCheckWorker`. Action 2.2.5 would have created duplicate catalogue entries. |
+| C12 | `pgcrypto` might be missing | PARTIALLY REFUTED — `pgcrypto 1.3` IS installed in schema `extensions` on the live project. The finding stands only as a reproducibility gap: the migration must still declare it. Severity reduced to WARNING. |
+| I12 | `device_storage.viewers.email` uniqueness unverified | REFUTED — a primary/unique constraint exists. The lowercase-storage assumption still needs a stated check. |
+
+## Findings accepted in full
+
+Structure and completeness: C1 (most actions carry prose, not code — including every
+security-critical function), C2 (the contract was not in the repository), C3 and C4 (forward
+dependencies 4.2.3→US5 and 2.4→6.2), C5 (Task 3.3 blocked by unanswered questions yet written as
+executable, and its 2 MB cap already contradicts the thumbnail volume), W1–W7.
+
+Architecture: C6 (no read path — one read RPC for six screens), C7 (nothing moves hashes from
+`jobs.result` into `media`/`device_media`, so `SOLO_MOVIL` can never be computed — the class the
+plan itself calls the only media with no backup), C10 (no `anonKey` in `FleetIdentity`, so every
+call after pairing lacks its `apikey` header), W17–W31.
+
+SQL and security: C14 (`random()` is not a CSPRNG on a credential-issuing path), C15 (a code minted
+before revocation resurrects a revoked device), C16 (`fleet_complete_job` takes unbounded `jsonb`
+from an `anon` endpoint), C17 (`approval_id` has no foreign key, so the destructive gate enforces
+only the presence of a UUID), W38–W44.
+
+Contract conformance: C18 (the per-file index does cross the cable — `HASH_BATCH` rows and
+`fleet.device_media` — so the invariant as stated is false), C19 (tests target a TypeScript deriver
+no action creates, duplicating the SQL state machine).
+
+Performance: C20 (a 91k-entry index in the shared settings Preferences DataStore, with a
+drop-on-overflow policy that destroys the incremental behaviour it exists to provide), W32–W37.
+
+QA: W8 (no automated SQL tests, and unlabelled manual steps), W9 (`MainDispatcherRule` does not
+exist), W10 (`TemporaryFolder` is JUnit 4; this project is JUnit 5 `@TempDir`), W11 (no jsdom,
+testing-library or ajv in `web/`), W13–W16.
+
+All INFO findings I1–I20 accepted.
+
+## Additional findings from the engine schemas, read after this plan was written
+
+Source: `steeveriano/gestion-data` — `schemas/*.json`, `policy.yaml`, `HANDOFF-PANEL.md`.
+
+| # | Finding |
+|---|---|
+| S1 | `media_id` is `^[a-f0-9]{64}$` in every engine schema. `fleet.media.media_id` is unconstrained `text`. Add the check constraint. |
+| S2 | `manifest.media_type` is `image|video` only. `fleet.media` allows `document|other`. The phone inventory does contain documents, so the widening is intentional — but it must be declared, not silent, or the panel and the engine disagree on what a medium is. |
+| S3 | Every engine schema requires `policy_version` and `engine_version`. Nothing in this plan records either. A policy change would silently reinterpret stored rows. |
+| S4 | `evidence` has six values in the schema (`source_folder` included); the handoff summary listed five. Render all six. |
+| S5 | `verification.checks` requires `dest_exists`, `hash_match`, `size_match` and optionally `readable`, `duration_present`, `original_intact`, `no_orphan` — seven, not the four this plan mentions. |
+| S6 | `verification.action_taken` (`NONE|ROLLED_BACK|QUARANTINED|MARKED_REVIEW`) is absent from this plan. A FAIL row must show what was done about it. |
+| S7 | `plan.conversion.reason` (`incompatible_video|incompatible_audio|incomplete_metadata`) is absent. Conversion is driven by target-profile incompatibility, not by codec identity; showing REMUX/RECODE without the reason reproduces exactly the misreading the engine's design avoids. |
+| S8 | `plan.dedup_group` / `dedup_keeper` / `dedup_score` are absent. Approving a `DEDUP_DELETE` without showing which copy is kept is an unsafe approval surface. |
+| S9 | `classification.site_distance_m` and `session` are absent. `AMBIGUOUS_SITE` cannot be explained to the approver without the distances to both sites. |
+| S10 | `policy.yaml` carries the site ids, unit ids, asset lists and normalisation map. The panel must read them from policy rather than hardcode any of them; `default_unit: null` means REVIEW rather than a guess, and the panel must not fill it in. |
+| S11 | `confidence_min_execute: 0.60` and `allow_medium_confidence: false` are policy, not panel logic. The approval screen must read the threshold, never embed 0.60. |
