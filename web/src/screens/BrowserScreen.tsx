@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   diskUsage,
   listFiles,
@@ -8,26 +8,41 @@ import {
   type UsageTreeNode,
 } from '../api/device';
 import { formatBytes, formatCount } from '../snapshot';
+import { FileIcon, FolderIcon } from '../components/icons';
+import { describeType } from '../components/fileType';
 
-/** The device caps a page at 200 entries, so asking for more just gets 200. */
+/** The device caps a page at 200 entries per folder, so asking for more just gets 200. */
 const PAGE = 200;
 
-type Crumb = { name: string; path: string };
+type Column = 'name' | 'modified' | 'type' | 'size';
+type Direction = 'asc' | 'desc';
+type Place = { locationId: string; path: string };
 
-type Sort = 'name' | 'size' | 'date';
+const COLUMNS: { id: Column; label: string; numeric: boolean }[] = [
+  { id: 'name', label: 'Nombre', numeric: false },
+  { id: 'modified', label: 'Fecha de modificación', numeric: false },
+  { id: 'type', label: 'Tipo', numeric: false },
+  { id: 'size', label: 'Tamaño', numeric: true },
+];
 
 export function BrowserScreen({ slug }: { slug: string }) {
   const [locations, setLocations] = useState<StorageLocation[] | null>(null);
-  const [locationId, setLocationId] = useState<string | null>(null);
-  const [path, setPath] = useState('');
+  const [place, setPlace] = useState<Place | null>(null);
   const [entries, setEntries] = useState<FileEntry[] | null>(null);
   const [truncated, setTruncated] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sort, setSort] = useState<Sort>('size');
+  const [column, setColumn] = useState<Column>('name');
+  const [direction, setDirection] = useState<Direction>('asc');
   const [query, setQuery] = useState('');
   const [usage, setUsage] = useState<UsageTreeNode | null>(null);
   const [usageBusy, setUsageBusy] = useState(false);
+  const [selected, setSelected] = useState<FileEntry | null>(null);
+
+  // Back and forward, as an address bar has them. The index walks the stack; a new navigation
+  // truncates whatever was ahead of it, exactly like a browser.
+  const history = useRef<Place[]>([]);
+  const [cursor, setCursor] = useState(-1);
 
   useEffect(() => {
     let cancelled = false;
@@ -36,82 +51,93 @@ export function BrowserScreen({ slug }: { slug: string }) {
       .then((found) => {
         if (cancelled) return;
         setLocations(found);
-        setLocationId((current) => current ?? found[0]?.id ?? null);
+        const first = found[0];
+        if (first && history.current.length === 0) {
+          history.current = [{ locationId: first.id, path: '' }];
+          setCursor(0);
+          setPlace(history.current[0] ?? null);
+        }
       })
       .catch((e: unknown) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'No se pudieron leer las ubicaciones.');
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : 'No se pudieron leer las ubicaciones.');
+        }
       });
     return () => {
       cancelled = true;
     };
   }, [slug]);
 
-  const open = useCallback(
-    async (nextLocation: string, nextPath: string) => {
-      setBusy(true);
-      setError(null);
-      setUsage(null);
-      try {
-        const listing = await listFiles(slug, nextLocation, nextPath, 0, PAGE);
+  useEffect(() => {
+    if (!place) return;
+    let cancelled = false;
+    setBusy(true);
+    setError(null);
+    setUsage(null);
+    setSelected(null);
+    listFiles(slug, place.locationId, place.path, 0, PAGE)
+      .then((listing) => {
+        if (cancelled) return;
         setEntries(listing.files);
         setTruncated(listing.files.length >= PAGE);
-        setLocationId(nextLocation);
-        setPath(nextPath);
-      } catch (e: unknown) {
+      })
+      .catch((e: unknown) => {
+        if (cancelled) return;
         setEntries(null);
         setError(e instanceof Error ? e.message : 'No se pudo abrir la carpeta.');
-      } finally {
-        setBusy(false);
-      }
+      })
+      .finally(() => {
+        if (!cancelled) setBusy(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [slug, place]);
+
+  const go = useCallback(
+    (next: Place) => {
+      history.current = [...history.current.slice(0, cursor + 1), next];
+      setCursor(history.current.length - 1);
+      setPlace(next);
     },
-    [slug],
+    [cursor],
   );
 
-  useEffect(() => {
-    if (locationId) void open(locationId, '');
-    // Only when the chosen location changes: `open` also runs on every navigation.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [locationId, slug]);
+  const step = useCallback((delta: number) => {
+    setCursor((current) => {
+      const next = current + delta;
+      const target = history.current[next];
+      if (!target) return current;
+      setPlace(target);
+      return next;
+    });
+  }, []);
 
   const measure = useCallback(async () => {
-    if (!locationId) return;
+    if (!place) return;
     setUsageBusy(true);
     setError(null);
     try {
-      setUsage(await diskUsage(slug, locationId, path, 1));
+      setUsage(await diskUsage(slug, place.locationId, place.path, 1));
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'No se pudo medir la carpeta.');
     } finally {
       setUsageBusy(false);
     }
-  }, [slug, locationId, path]);
+  }, [slug, place]);
 
-  const crumbs = useMemo<Crumb[]>(() => {
-    const location = locations?.find((l) => l.id === locationId);
-    const out: Crumb[] = [{ name: location?.name ?? 'Raíz', path: '' }];
-    if (path === '') return out;
-    const parts = path.split('/').filter(Boolean);
+  const location = locations?.find((l) => l.id === place?.locationId) ?? null;
+
+  const crumbs = useMemo(() => {
+    if (!place) return [];
+    const out = [{ name: location?.name ?? 'Raíz', path: '' }];
     let walked = '';
-    for (const part of parts) {
+    for (const part of place.path.split('/').filter(Boolean)) {
       walked = walked === '' ? part : `${walked}/${part}`;
       out.push({ name: part, path: walked });
     }
     return out;
-  }, [locations, locationId, path]);
-
-  const shown = useMemo(() => {
-    if (!entries) return [];
-    const needle = query.trim().toLowerCase();
-    const filtered = needle === '' ? entries : entries.filter((e) => e.name.toLowerCase().includes(needle));
-    const sorted = [...filtered].sort((a, b) => {
-      // Directories first at every sort: a folder and a file are not comparable by size.
-      if (a.is_directory !== b.is_directory) return a.is_directory ? -1 : 1;
-      if (sort === 'size') return b.size - a.size;
-      if (sort === 'date') return (b.last_modified ?? 0) - (a.last_modified ?? 0);
-      return a.name.localeCompare(b.name, 'es');
-    });
-    return sorted;
-  }, [entries, query, sort]);
+  }, [place, location]);
 
   const usageByName = useMemo(() => {
     const map = new Map<string, UsageTreeNode>();
@@ -122,140 +148,305 @@ export function BrowserScreen({ slug }: { slug: string }) {
     return map;
   }, [usage]);
 
-  const totals = useMemo(() => {
-    const files = shown.filter((e) => !e.is_directory);
-    return { dirs: shown.length - files.length, files: files.length, bytes: files.reduce((n, e) => n + e.size, 0) };
-  }, [shown]);
+  const rows = useMemo(() => {
+    if (!entries) return [];
+    const needle = query.trim().toLowerCase();
+    const filtered =
+      needle === '' ? entries : entries.filter((e) => e.name.toLowerCase().includes(needle));
+    const sign = direction === 'asc' ? 1 : -1;
+    return [...filtered].sort((a, b) => {
+      // Folders always lead, whatever the column: Explorer does this, and a folder's size is not
+      // comparable to a file's anyway.
+      if (a.is_directory !== b.is_directory) return a.is_directory ? -1 : 1;
+      if (column === 'size') {
+        const av = a.is_directory ? (usageByName.get(a.name)?.totalBytes ?? -1) : a.size;
+        const bv = b.is_directory ? (usageByName.get(b.name)?.totalBytes ?? -1) : b.size;
+        return (av - bv) * sign;
+      }
+      if (column === 'modified') return ((a.last_modified ?? 0) - (b.last_modified ?? 0)) * sign;
+      if (column === 'type') {
+        return describeType(a).localeCompare(describeType(b), 'es') * sign;
+      }
+      return a.name.localeCompare(b.name, 'es', { numeric: true }) * sign;
+    });
+  }, [entries, query, column, direction, usageByName]);
+
+  const counts = useMemo(() => {
+    const files = rows.filter((e) => !e.is_directory);
+    return {
+      dirs: rows.length - files.length,
+      files: files.length,
+      bytes: files.reduce((n, e) => n + e.size, 0),
+    };
+  }, [rows]);
+
+  function sortBy(next: Column) {
+    if (next === column) setDirection((d) => (d === 'asc' ? 'desc' : 'asc'));
+    else {
+      setColumn(next);
+      setDirection(next === 'size' || next === 'modified' ? 'desc' : 'asc');
+    }
+  }
+
+  const parent = place && place.path !== '' ? place.path.split('/').slice(0, -1).join('/') : null;
 
   return (
-    <div className="browser">
-      <div className="browser-bar">
-        <label className="field">
-          <span>Ubicación</span>
-          <select
-            value={locationId ?? ''}
-            onChange={(e) => setLocationId(e.target.value)}
-            disabled={!locations}
+    <div className="explorer">
+      <div className="ex-toolbar">
+        <div className="ex-nav">
+          <button
+            type="button"
+            className="icon-btn"
+            title="Atrás"
+            aria-label="Atrás"
+            disabled={cursor <= 0}
+            onClick={() => step(-1)}
           >
-            {(locations ?? []).map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.name}
-              </option>
-            ))}
-          </select>
-        </label>
+            ‹
+          </button>
+          <button
+            type="button"
+            className="icon-btn"
+            title="Adelante"
+            aria-label="Adelante"
+            disabled={cursor >= history.current.length - 1}
+            onClick={() => step(1)}
+          >
+            ›
+          </button>
+          <button
+            type="button"
+            className="icon-btn"
+            title="Subir un nivel"
+            aria-label="Subir un nivel"
+            disabled={parent === null}
+            onClick={() => place && parent !== null && go({ ...place, path: parent })}
+          >
+            ↑
+          </button>
+          <button
+            type="button"
+            className="icon-btn"
+            title="Actualizar"
+            aria-label="Actualizar"
+            disabled={busy || !place}
+            onClick={() => place && setPlace({ ...place })}
+          >
+            ⟳
+          </button>
+        </div>
 
-        <label className="field">
-          <span>Ordenar</span>
-          <select value={sort} onChange={(e) => setSort(e.target.value as Sort)}>
-            <option value="size">Tamaño</option>
-            <option value="name">Nombre</option>
-            <option value="date">Fecha</option>
-          </select>
-        </label>
+        <nav className="ex-address" aria-label="Ruta">
+          {crumbs.map((crumb, index) => (
+            <span className="ex-crumb" key={crumb.path}>
+              {index > 0 && <span className="ex-sep" aria-hidden="true">›</span>}
+              <button
+                type="button"
+                disabled={index === crumbs.length - 1}
+                onClick={() => place && go({ ...place, path: crumb.path })}
+              >
+                {crumb.name}
+              </button>
+            </span>
+          ))}
+        </nav>
 
         <input
           type="search"
+          className="ex-search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Filtrar en esta carpeta…"
-          aria-label="Filtrar en esta carpeta"
+          placeholder="Buscar en esta carpeta"
+          aria-label="Buscar en esta carpeta"
         />
 
-        <button type="button" onClick={() => void measure()} disabled={usageBusy || !locationId}>
-          {usageBusy ? 'Midiendo…' : 'Medir carpetas'}
+        <button type="button" className="ex-action" onClick={() => void measure()} disabled={usageBusy || !place}>
+          {usageBusy ? 'Midiendo…' : 'Calcular tamaño'}
         </button>
       </div>
 
-      <nav className="crumbs" aria-label="Ruta">
-        {crumbs.map((crumb, index) => (
-          <span key={crumb.path}>
-            {index > 0 && <span className="sep">/</span>}
-            <button
-              type="button"
-              className="linklike"
-              onClick={() => locationId && void open(locationId, crumb.path)}
-              disabled={index === crumbs.length - 1}
-            >
-              {crumb.name}
-            </button>
-          </span>
-        ))}
-      </nav>
+      <div className="ex-body">
+        <aside className="ex-side" aria-label="Ubicaciones">
+          <p className="ex-side-head">Este dispositivo</p>
+          <ul>
+            {(locations ?? []).map((entry) => (
+              <li key={entry.id}>
+                <button
+                  type="button"
+                  className={entry.id === place?.locationId ? 'ex-place current' : 'ex-place'}
+                  aria-current={entry.id === place?.locationId ? 'true' : undefined}
+                  onClick={() => go({ locationId: entry.id, path: '' })}
+                >
+                  <FolderIcon />
+                  <span className="ex-place-name">{entry.name}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+          {locations === null && <p className="ex-side-note">Cargando…</p>}
+        </aside>
 
-      {error && <p className="error">{error}</p>}
+        <div className="ex-main">
+          {error && <p className="error ex-error">{error}</p>}
 
-      {busy && <p className="empty">Leyendo del dispositivo…</p>}
+          <div className="ex-grid" role="table" aria-label="Contenido de la carpeta">
+            <div className="ex-head" role="row">
+              {COLUMNS.map((col) => (
+                <button
+                  key={col.id}
+                  type="button"
+                  role="columnheader"
+                  aria-sort={
+                    column === col.id ? (direction === 'asc' ? 'ascending' : 'descending') : 'none'
+                  }
+                  className={col.numeric ? 'ex-th num' : 'ex-th'}
+                  onClick={() => sortBy(col.id)}
+                >
+                  {col.label}
+                  <span className="ex-sort" aria-hidden="true">
+                    {column === col.id ? (direction === 'asc' ? '▴' : '▾') : ''}
+                  </span>
+                </button>
+              ))}
+            </div>
 
-      {!busy && entries && shown.length === 0 && (
-        <p className="empty">{query ? `Nada coincide con «${query}».` : 'Carpeta vacía.'}</p>
-      )}
+            <div className="ex-rows">
+              {busy && <p className="ex-status">Leyendo del dispositivo…</p>}
 
-      {!busy && shown.length > 0 && (
-        <>
-          <table className="files">
-            <thead>
-              <tr>
-                <th>Nombre</th>
-                <th className="num">Tamaño</th>
-                <th className="num">Modificado</th>
-              </tr>
-            </thead>
-            <tbody>
-              {shown.map((entry) => {
-                const measured = entry.is_directory ? usageByName.get(entry.name) : undefined;
-                return (
-                  <tr key={`${entry.path}:${entry.name}`}>
-                    <td>
-                      {entry.is_directory ? (
-                        <button
-                          type="button"
-                          className="dir"
-                          onClick={() => locationId && void open(locationId, joinPath(path, entry.name))}
-                        >
-                          <span className="ic" aria-hidden="true">
-                            ›
-                          </span>
-                          {entry.name}
-                        </button>
-                      ) : (
-                        <span className="file">
-                          <span className="ic" aria-hidden="true" />
-                          {entry.name}
-                        </span>
-                      )}
-                    </td>
-                    <td className="num mono">
-                      {entry.is_directory
-                        ? measured
-                          ? `${formatBytes(measured.totalBytes)} · ${formatCount(measured.fileCount)}`
-                          : '—'
-                        : formatBytes(entry.size)}
-                    </td>
-                    <td className="num mono">{formatDate(entry.last_modified)}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+              {!busy && entries && rows.length === 0 && (
+                <p className="ex-status">
+                  {query ? `Ningún elemento coincide con «${query}».` : 'Esta carpeta está vacía.'}
+                </p>
+              )}
 
-          <p className="note">
-            {formatCount(totals.dirs)} carpetas · {formatCount(totals.files)} archivos ·{' '}
-            {formatBytes(totals.bytes)} en esta página
-            {truncated && ' · el dispositivo corta en 200 entradas por carpeta'}
-            {!usage && totals.dirs > 0 && ' · «Medir carpetas» calcula el peso de cada subcarpeta'}
-          </p>
-        </>
-      )}
+              {!busy &&
+                rows.map((entry) => {
+                  const measured = entry.is_directory ? usageByName.get(entry.name) : undefined;
+                  const isSelected = selected?.name === entry.name && selected.path === entry.path;
+                  return (
+                    <div
+                      key={`${entry.path}:${entry.name}`}
+                      role="row"
+                      className={isSelected ? 'ex-row selected' : 'ex-row'}
+                      tabIndex={0}
+                      onClick={() => setSelected(entry)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && entry.is_directory && place) {
+                          go({ ...place, path: join(place.path, entry.name) });
+                        }
+                        if (e.key === ' ') {
+                          e.preventDefault();
+                          setSelected(entry);
+                        }
+                      }}
+                      onDoubleClick={() =>
+                        entry.is_directory && place && go({ ...place, path: join(place.path, entry.name) })
+                      }
+                    >
+                      <span className="ex-cell name" role="cell">
+                        {entry.is_directory ? <FolderIcon /> : <FileIcon name={entry.name} />}
+                        <span className="ex-name">{entry.name}</span>
+                      </span>
+                      <span className="ex-cell" role="cell">
+                        {formatDateTime(entry.last_modified)}
+                      </span>
+                      <span className="ex-cell" role="cell">
+                        {describeType(entry)}
+                      </span>
+                      <span className="ex-cell num mono" role="cell">
+                        {entry.is_directory
+                          ? measured
+                            ? formatBytes(measured.totalBytes)
+                            : ''
+                          : formatBytes(entry.size)}
+                      </span>
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+        </div>
+
+        <aside className="ex-details" aria-label="Detalles">
+          {selected ? (
+            <>
+              <div className="ex-preview">
+                {selected.is_directory ? <FolderIcon size={48} /> : <FileIcon name={selected.name} size={48} />}
+              </div>
+              <h3 className="ex-details-name">{selected.name}</h3>
+              <p className="ex-details-type">{describeType(selected)}</p>
+              <dl className="ex-props">
+                <div>
+                  <dt>Tamaño</dt>
+                  <dd className="mono">
+                    {selected.is_directory
+                      ? (usageByName.get(selected.name)?.totalBytes ?? null) === null
+                        ? 'Sin calcular'
+                        : formatBytes(usageByName.get(selected.name)?.totalBytes ?? 0)
+                      : formatBytes(selected.size)}
+                  </dd>
+                </div>
+                {selected.is_directory && usageByName.get(selected.name) && (
+                  <div>
+                    <dt>Archivos</dt>
+                    <dd className="mono">{formatCount(usageByName.get(selected.name)?.fileCount ?? 0)}</dd>
+                  </div>
+                )}
+                <div>
+                  <dt>Modificado</dt>
+                  <dd>{formatDateTime(selected.last_modified)}</dd>
+                </div>
+                {selected.mime_type && (
+                  <div>
+                    <dt>Formato</dt>
+                    <dd className="mono">{selected.mime_type}</dd>
+                  </div>
+                )}
+                <div>
+                  <dt>Ruta</dt>
+                  <dd className="mono ex-path">{selected.path || '/'}</dd>
+                </div>
+              </dl>
+            </>
+          ) : (
+            <p className="ex-details-empty">
+              Seleccioná un elemento para ver sus detalles. Doble clic abre una carpeta.
+            </p>
+          )}
+        </aside>
+      </div>
+
+      <div className="ex-status-bar">
+        <span>
+          {formatCount(rows.length)} elementos
+          {counts.dirs > 0 && ` · ${formatCount(counts.dirs)} carpetas`}
+          {counts.files > 0 && ` · ${formatCount(counts.files)} archivos, ${formatBytes(counts.bytes)}`}
+        </span>
+        <span className="ex-status-note">
+          {truncated
+            ? 'El dispositivo entrega hasta 200 elementos por carpeta'
+            : usage
+              ? 'Tamaños de carpeta calculados'
+              : counts.dirs > 0
+                ? '«Calcular tamaño» mide cada carpeta'
+                : ''}
+        </span>
+      </div>
     </div>
   );
 }
 
-function joinPath(base: string, name: string): string {
+function join(base: string, name: string): string {
   return base === '' ? name : `${base}/${name}`;
 }
 
-function formatDate(millis: number | null): string {
-  if (!millis) return '—';
-  return new Date(millis).toLocaleDateString('es', { year: 'numeric', month: 'short', day: '2-digit' });
+function formatDateTime(millis: number | null): string {
+  if (!millis) return '';
+  return new Date(millis).toLocaleString('es', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
