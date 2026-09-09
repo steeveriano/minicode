@@ -1,6 +1,7 @@
 package com.danielealbano.androidremotecontrolmcp.services.storage
 
 import android.net.Uri
+import com.danielealbano.androidremotecontrolmcp.data.model.DiskUsageResult
 
 /**
  * File operations for built-in MediaStore storage locations.
@@ -65,4 +66,33 @@ interface MediaStoreFileOperations {
         path: String,
         mimeType: String,
     ): Uri
+
+    suspend fun moveFile(
+        locationId: String,
+        sourcePath: String,
+        destinationPath: String,
+        overwrite: Boolean,
+        allowCopyFallback: Boolean,
+    ): FileMoveResult
+
+    suspend fun createDirectory(
+        locationId: String,
+        path: String,
+    ): Boolean
+
+    suspend fun statPath(
+        locationId: String,
+        path: String,
+    ): PathKind?
+
+    suspend fun deleteDirectory(
+        locationId: String,
+        path: String,
+    ): Int
+
+    suspend fun diskUsage(
+        locationId: String,
+        path: String,
+        maxDepth: Int,
+    ): DiskUsageResult
 }

@@ -1,6 +1,7 @@
 package com.danielealbano.androidremotecontrolmcp.services.storage
 
 import android.net.Uri
+import com.danielealbano.androidremotecontrolmcp.data.model.DiskUsageResult
 import com.danielealbano.androidremotecontrolmcp.data.model.FileInfo
 
 /**
@@ -73,6 +74,47 @@ data class FileBytesResult(
         return result
     }
 }
+
+/** What lives at a path. */
+enum class PathKind {
+    FILE,
+    DIRECTORY,
+}
+
+/**
+ * How a move was carried out.
+ *
+ * A caller that cannot afford a second copy of the file — staging an archive on a device that is
+ * short on space — refuses [COPY_DELETE] up front rather than discovering the cost afterwards.
+ */
+enum class MoveMechanism {
+    /** DocumentsContract.moveDocument: metadata only, no second copy, no free space needed. */
+    MOVE_DOCUMENT,
+
+    /** DocumentsContract.renameDocument: same parent, name change only. */
+    RENAME_DOCUMENT,
+
+    /** moveDocument then renameDocument: a different parent AND a different name. */
+    MOVE_THEN_RENAME,
+
+    /** Streamed copy followed by deletion of the source: needs free space equal to the file. */
+    COPY_DELETE,
+}
+
+/**
+ * Result of a file move.
+ *
+ * @property destinationPath The relative path the file actually occupies afterwards. A storage
+ *   provider may assign a different display name than requested (`photo (1).jpg`), so this is
+ *   read back from the moved document rather than echoed from the request.
+ * @property sizeBytes Size of the moved file.
+ * @property mechanism How the move was performed.
+ */
+data class FileMoveResult(
+    val destinationPath: String,
+    val sizeBytes: Long,
+    val mechanism: MoveMechanism,
+)
 
 /**
  * Provides file operations via the Storage Access Framework.
@@ -233,12 +275,99 @@ interface FileOperationProvider {
         mimeType: String,
     ): Uri
 
+    /**
+     * Moves a file to a different path within the same storage location.
+     *
+     * Requires write AND delete permission: the file leaves the path it occupied, which is a
+     * deletion from that path's point of view.
+     *
+     * @param locationId The authorized storage location identifier.
+     * @param sourcePath Relative path of the existing file.
+     * @param destinationPath Relative destination path; parent directories are created.
+     * @param overwrite When false, an existing destination file fails the operation. An
+     *   existing destination *directory* fails regardless of this flag, because removing one
+     *   would take its whole subtree with it.
+     * @param allowCopyFallback When false and the storage provider supports neither move nor
+     *   rename, the operation fails instead of duplicating the file's bytes.
+     * @return [FileMoveResult] describing the destination reached and the mechanism used.
+     */
+    suspend fun moveFile(
+        locationId: String,
+        sourcePath: String,
+        destinationPath: String,
+        overwrite: Boolean,
+        allowCopyFallback: Boolean,
+    ): FileMoveResult
+
+    /**
+     * Creates [path] as a directory, including any missing parents.
+     *
+     * @param locationId The authorized storage location identifier.
+     * @param path Relative path of the directory.
+     * @return true when the directory was newly created, false when it already existed. A
+     *   caller claiming a uniquely named directory uses the false result to detect a collision.
+     */
+    suspend fun createDirectory(
+        locationId: String,
+        path: String,
+    ): Boolean
+
+    /**
+     * Reports what lives at [path], or null when nothing does.
+     *
+     * @param locationId The authorized storage location identifier.
+     * @param path Relative path to inspect.
+     */
+    suspend fun statPath(
+        locationId: String,
+        path: String,
+    ): PathKind?
+
+    /**
+     * Deletes a directory and everything below it.
+     *
+     * [deleteFile] refuses directories by design, so a caller that needs to remove a whole
+     * subtree uses this instead. Throws rather than deleting partially when the subtree exceeds
+     * [MAX_USAGE_NODES] directories: a partial delete reporting success would leave files
+     * stranded with no record of them.
+     *
+     * @param locationId The authorized storage location identifier.
+     * @param path Relative path of the directory.
+     * @return the number of files deleted.
+     */
+    suspend fun deleteDirectory(
+        locationId: String,
+        path: String,
+    ): Int
+
+    /**
+     * Aggregates the size of every file below [path].
+     *
+     * Totals always cover the whole subtree; [maxDepth] limits only how deep the returned tree
+     * is broken down, so a shallow request still reports a complete total.
+     *
+     * @param locationId The authorized storage location identifier.
+     * @param path Relative path to aggregate; empty for the location root.
+     * @param maxDepth How many levels of sub-directory to itemize.
+     */
+    suspend fun diskUsage(
+        locationId: String,
+        path: String,
+        maxDepth: Int,
+    ): DiskUsageResult
+
     companion object {
         /** Maximum entries returned by list_files. */
         const val MAX_LIST_ENTRIES = 200
 
         /** Maximum lines returned by read_file. */
         const val MAX_READ_LINES = 200
+
+        /** Upper bound on directories visited by a single recursive traversal. */
+        const val MAX_USAGE_NODES = 20_000
+
+        /** Upper bound on the depth disk_usage will itemize. */
+        const val MAX_USAGE_DEPTH = 10
 
         // File size limit constants are defined in ServerConfig
         // (DEFAULT_FILE_SIZE_LIMIT_MB, MIN_FILE_SIZE_LIMIT_MB, MAX_FILE_SIZE_LIMIT_MB).
