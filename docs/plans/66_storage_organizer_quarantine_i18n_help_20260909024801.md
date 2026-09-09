@@ -530,3 +530,40 @@ becomes reachable and by whom.
 - [ ] `./gradlew :app:test` green
 - [ ] `./gradlew build` succeeds without warnings
 - [ ] `code-reviewer` subagent in plan compliance mode reports no findings
+
+---
+
+## Review findings
+
+Audited by the `plan-reviewer` subagent. Outcome: 16 CRITICAL, 18 WARNING, 8 INFO.
+Every load-bearing finding was independently verified against the codebase and confirmed.
+
+Findings that invalidate the design rather than refine it:
+
+- **Data loss — batch id collision.** `yyyy-MM-dd-HHmmss` collides for two calls in the same
+  second; the second manifest overwrites the first, orphaning the first batch's files.
+- **Data loss — pagination.** `MAX_LIST_ENTRIES`/`MAX_READ_LINES` are 200
+  (`FileOperationProvider.kt:238,241`). Batches above that are partially enumerated, so purge
+  reports success while leaving files behind, and manifests above 200 lines read back as
+  invalid JSON.
+- **Security — path traversal.** Manifest-derived paths are used as move targets without
+  `validatePath`, and the manifest lives in user-writable storage.
+- **Unimplementable — directory deletion.** `deleteFile` explicitly refuses directories
+  (`FileOperationProviderImpl.kt:433`), so purge and emptied-batch cleanup cannot be built on it.
+- **False premise — instant move.** The copy fallback needs free space equal to the archive on
+  providers lacking `FLAG_SUPPORTS_MOVE`, contradicting US4's rationale.
+- **Wrong registration target.** Tools register in `McpServerService.registerAllTools()`
+  (`McpServerService.kt:442,458`), not `McpServer.kt`.
+- **Broken suite.** `EXPECTED_TOOL_COUNT = 57` in `McpProtocolIntegrationTest.kt:138` and
+  `AuthIntegrationTest.kt:109`, plus `ALL_TOOL_NAMES` in `ToolPermissionsIntegrationTest.kt`.
+- **Vacuous verification.** `HardcodedText` inspects layout XML; this project has none, so US1's
+  acceptance criterion passes regardless of the work.
+- **Missing infrastructure.** `createComposeRule` is absent and there is no `androidTest` source
+  set, so US6's tests cannot run as specified.
+
+Product decision taken by the user: **moving a file out of its path counts as deletion.**
+`move_file`, `quarantine_files` and `restore_quarantine_batch` therefore require both the write
+and delete permissions of the storage location, rather than write alone.
+
+This plan is superseded by `67_storage_organizer_quarantine_i18n_help_20260909031500.md`, which
+carries the corrected design. It is retained as a permanent artifact per the header.
