@@ -55,7 +55,9 @@ export default async (req: Request): Promise<Response> => {
   } catch (error) {
     const timedOut = error instanceof Error && error.name === 'TimeoutError';
     return json(timedOut ? 504 : 502, {
-      error: timedOut ? 'El dispositivo no respondió a tiempo.' : 'El dispositivo no pudo abrir el archivo.',
+      error: timedOut
+        ? 'El dispositivo no respondió a tiempo.'
+        : 'El dispositivo no pudo abrir el archivo. Si el túnel está arriba, revisá que «Share File via Web» esté activada en Ajustes → Herramientas MCP.',
     });
   }
 
@@ -79,7 +81,14 @@ export default async (req: Request): Promise<Response> => {
   } catch {
     return json(504, { error: 'El archivo no llegó a tiempo.' });
   }
-  if (!upstream.ok) return json(502, { error: 'El dispositivo no entregó el archivo.' });
+  if (!upstream.ok) {
+    return json(502, {
+      error:
+        upstream.status === 404
+          ? 'El dispositivo no está conectado al túnel. Iniciá el servidor en el teléfono.'
+          : 'El dispositivo no entregó el archivo.',
+    });
+  }
 
   if (!upstream.body) return json(502, { error: 'El dispositivo no entregó contenido.' });
 

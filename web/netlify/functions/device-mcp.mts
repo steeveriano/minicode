@@ -67,10 +67,22 @@ export default async (req: Request): Promise<Response> => {
   }
 
   const body = await upstream.text();
-  const out: Record<string, string> = {
-    'content-type': upstream.headers.get('content-type') ?? 'application/json',
-    'cache-control': 'no-store',
-  };
+  const contentType = upstream.headers.get('content-type') ?? 'application/json';
+
+  // A tunnel with no agent on the far end answers with its own HTML error page, and passing that
+  // through gives the panel a wall of markup where it expected a protocol reply. Anything that is
+  // not JSON is therefore reported as what it actually is: the device is unreachable.
+  if (!contentType.includes('json')) {
+    return json(502, {
+      error:
+        upstream.status === 404
+          ? 'El dispositivo no está conectado al túnel. Iniciá el servidor en el teléfono.'
+          : 'El túnel respondió algo que no es del dispositivo.',
+      upstreamStatus: upstream.status,
+    });
+  }
+
+  const out: Record<string, string> = { 'content-type': contentType, 'cache-control': 'no-store' };
   const upstreamSession = upstream.headers.get('mcp-session-id');
   if (upstreamSession) out['mcp-session-id'] = upstreamSession;
 
