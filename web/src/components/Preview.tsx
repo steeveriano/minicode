@@ -35,7 +35,9 @@ export function Preview({
 }) {
   const [state, setState] = useState<State>({ kind: 'idle' });
   const family = entry.is_directory ? 'folder' : familyOf(entry.name);
-  const renderable = family === 'image' || isPdf(entry.name);
+  // Video is attempted like anything else: the size guard lives at the endpoint, and plenty of
+  // clips on a phone are small enough to play. Guessing here would hide the ones that work.
+  const renderable = family === 'image' || family === 'video' || isPdf(entry.name);
   const textual = family === 'document' && !isPdf(entry.name);
 
   useEffect(() => {
@@ -59,15 +61,7 @@ export function Preview({
             if (!cancelled) setState({ kind: 'text', body });
           })
         : Promise.resolve().then(() => {
-            if (!cancelled) {
-              setState({
-                kind: 'none',
-                reason:
-                  family === 'video'
-                    ? 'Los vídeos no se previsualizan: pesan más de lo que esta ruta puede servir.'
-                    : 'Este formato no se previsualiza.',
-              });
-            }
+            if (!cancelled) setState({ kind: 'none', reason: 'Este formato no se previsualiza.' });
           });
 
     void work.catch((e: unknown) => {
@@ -88,6 +82,10 @@ export function Preview({
 
       {state.kind === 'blob' && family === 'image' && (
         <img className="pv-image" src={state.url} alt={entry.name} />
+      )}
+
+      {state.kind === 'blob' && family === 'video' && (
+        <video className="pv-video" src={state.url} controls preload="metadata" />
       )}
 
       {state.kind === 'blob' && isPdf(entry.name) && (

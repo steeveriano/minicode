@@ -34,7 +34,7 @@
     Referrer-Policy = "no-referrer"
     X-Content-Type-Options = "nosniff"
     X-Frame-Options = "DENY"
-    # `img-src`, `frame-src` and `object-src` admit `blob:` so the preview pane can render a file
+    # `img-src`, `media-src`, `frame-src` and `object-src` admit `blob:` so the preview pane can render a file
     # the panel fetched. An `<img src>` cannot carry an Authorization header, so bytes arrive
     # through `fetch` and become an object URL; without `blob:` that render is blocked.
     #
@@ -45,4 +45,4 @@
     # allowlist of read-only tools. That is what keeps this directive from growing a host every
     # time a device is added or a tunnel hostname changes — and it means a token cannot leak
     # from the bundle, because there is none in it.
-    Content-Security-Policy = "default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; frame-src blob:; object-src blob:; connect-src 'self' https://fqrrcoupmwssqbatgxrs.supabase.co wss://fqrrcoupmwssqbatgxrs.supabase.co; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+    Content-Security-Policy = "default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; media-src blob:; frame-src blob:; object-src blob:; connect-src 'self' https://fqrrcoupmwssqbatgxrs.supabase.co wss://fqrrcoupmwssqbatgxrs.supabase.co; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
