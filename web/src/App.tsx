@@ -1,5 +1,7 @@
-import { useMemo, useState } from 'react';
-import snapshotJson from './data/snapshot.json';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { Session } from '@supabase/supabase-js';
+import { Auth } from './Auth';
+import { supabase } from './supabase';
 import {
   formatBytes,
   formatCount,
@@ -8,25 +10,103 @@ import {
   sortedChildren,
   totalBytes,
   totalFiles,
+  toSnapshot,
   type LocationSnapshot,
   type Snapshot,
+  type SnapshotPayload,
   type UsageNode,
 } from './snapshot';
-
-const snapshot = snapshotJson as unknown as Snapshot;
 
 /** Depth at which the tree stops opening by itself; deeper levels are a deliberate tap. */
 const AUTO_OPEN_DEPTH = 0;
 
+type Access = 'loading' | 'anonymous' | 'denied' | 'granted';
+
 export function App() {
+  const [session, setSession] = useState<Session | null>(null);
+  const [access, setAccess] = useState<Access>('loading');
+  const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
+  const [failure, setFailure] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    const { data } = supabase.auth.onAuthStateChange((_event, next) => setSession(next));
+    return () => data.subscription.unsubscribe();
+  }, []);
+
+  const load = useCallback(async () => {
+    if (!session) {
+      setAccess('anonymous');
+      setSnapshot(null);
+      return;
+    }
+    setAccess('loading');
+    setFailure(null);
+    const { data, error } = await supabase.rpc('device_storage_latest_snapshot');
+    if (error) {
+      setFailure(error.message);
+      setAccess('denied');
+      return;
+    }
+    // The function returns null for a caller who is signed in but not on the allowlist. That is a
+    // different answer from "there is no data", and the page must not conflate them.
+    if (data === null) {
+      setAccess('denied');
+      return;
+    }
+    setSnapshot(toSnapshot(data as SnapshotPayload));
+    setAccess('granted');
+  }, [session]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  if (access === 'loading') {
+    return <p className="empty">Cargando…</p>;
+  }
+  if (access === 'anonymous') {
+    return <Auth />;
+  }
+  if (access === 'denied') {
+    return (
+      <div className="gate">
+        <h1>Sin acceso</h1>
+        <p className="muted">
+          Iniciaste sesión como <strong>{session?.user.email}</strong>, pero esa dirección no está
+          autorizada a ver este inventario.
+        </p>
+        {failure && <p className="error">{failure}</p>}
+        <button type="button" className="ghost" onClick={() => supabase.auth.signOut()}>
+          Cerrar sesión
+        </button>
+      </div>
+    );
+  }
+  if (!snapshot) {
+    return (
+      <div className="gate">
+        <h1>Todavía no hay mediciones</h1>
+        <p className="muted">Corré la captura contra el teléfono y volvé a entrar.</p>
+        <button type="button" className="ghost" onClick={() => supabase.auth.signOut()}>
+          Cerrar sesión
+        </button>
+      </div>
+    );
+  }
+  return <Viewer snapshot={snapshot} email={session?.user.email ?? ''} />;
+}
+
+function Viewer({ snapshot, email }: { snapshot: Snapshot; email: string }) {
   const [query, setQuery] = useState('');
   const [expandAll, setExpandAll] = useState(false);
 
-  const grandTotal = useMemo(() => totalBytes(snapshot), []);
-  const files = useMemo(() => totalFiles(snapshot), []);
+  const grandTotal = useMemo(() => totalBytes(snapshot), [snapshot]);
+  const files = useMemo(() => totalFiles(snapshot), [snapshot]);
   const locations = useMemo(
-    () => [...snapshot.locations].sort((a, b) => (b.root?.totalBytes ?? 0) - (a.root?.totalBytes ?? 0)),
-    [],
+    () =>
+      [...snapshot.locations].sort((a, b) => (b.root?.totalBytes ?? 0) - (a.root?.totalBytes ?? 0)),
+    [snapshot],
   );
 
   const needle = query.trim().toLowerCase();
@@ -43,6 +123,12 @@ export function App() {
             timeStyle: 'short',
           })}
           {snapshot.device.serverVersion ? ` · ${snapshot.device.serverVersion}` : ''}
+        </p>
+        <p className="captured">
+          {email}{' '}
+          <button type="button" className="linklike" onClick={() => supabase.auth.signOut()}>
+            cerrar sesión
+          </button>
         </p>
       </header>
 
@@ -89,10 +175,10 @@ export function App() {
 
       <footer>
         <p>
-          Instantánea generada con <code>npm run capture</code> contra el servidor MCP del teléfono.
-          Esta página no se conecta al dispositivo: sólo lee el archivo <code>snapshot.json</code>{' '}
-          compilado dentro de ella, así que funciona con el celular apagado y no contiene ninguna
-          credencial.
+          Instantánea generada con <code>npm run capture</code> contra el servidor MCP del teléfono y
+          guardada en Supabase. Esta página nunca se conecta al dispositivo: sólo consulta la base,
+          así que funciona con el celular apagado. Quién puede leerla lo decide el servidor, no el
+          navegador.
         </p>
       </footer>
     </div>

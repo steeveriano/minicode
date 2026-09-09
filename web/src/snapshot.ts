@@ -1,10 +1,13 @@
 /**
- * The contract between the phone and this page.
+ * The contract between the phone, the database and this page.
  *
- * Deliberately a mirror of the Android side's `DiskUsageResult` / `DiskUsageNode`: the capture
- * script asks the device for exactly this shape and writes it out unchanged. Keeping the two in one
+ * `UsageNode` mirrors the Android side's `DiskUsageResult` / `DiskUsageNode`; keeping the two in one
  * repository is the point — a field renamed on the device and not here would otherwise only surface
  * as an empty screen after a deploy.
+ *
+ * The database stores the tree flattened, because growth over time and diffs between captures are
+ * why it earns its place, and neither is expressible over nested JSON. The nesting is rebuilt here,
+ * at the one place that needs it.
  */
 
 /** How much of a location the device was allowed to see when the snapshot was taken. */
@@ -36,6 +39,35 @@ export interface LocationSnapshot {
   error?: string;
   /** True when the device reported it could only see files this app itself wrote. */
   partial: boolean;
+}
+
+/** One row of the flattened tree, as `public.device_storage_latest_snapshot()` returns it. */
+export interface UsageRow {
+  path: string;
+  parentPath: string | null;
+  depth: number;
+  totalBytes: number;
+  fileCount: number;
+}
+
+export interface LocationRows {
+  id: string;
+  name: string;
+  path: string;
+  accessLevel: AccessLevel;
+  partial: boolean;
+  error: string | null;
+  nodes: UsageRow[];
+}
+
+/** The function's payload, before the tree is rebuilt. */
+export interface SnapshotPayload {
+  schemaVersion: 1;
+  snapshotId?: string;
+  capturedAt?: string;
+  empty?: true;
+  device?: { availableBytes: number | null; serverVersion: string | null };
+  locations?: LocationRows[];
 }
 
 export interface Snapshot {
@@ -114,4 +146,58 @@ const BUILTIN_NAMES: Record<string, string> = {
 
 export function locationLabel(location: LocationSnapshot): { name: string; path: string } {
   return { name: BUILTIN_NAMES[location.id] ?? location.name, path: location.path };
+}
+
+/**
+ * Rebuilds one location's tree from its flat rows.
+ *
+ * The rows arrive ordered by size, not by structure, so a child can appear before its parent; every
+ * node is therefore created first and linked second. A row whose `parentPath` names something that
+ * is not in the set is dropped rather than silently reparented to the root — that would invent a
+ * total the device never reported.
+ */
+export function buildTree(rows: UsageRow[]): UsageNode | null {
+  const byPath = new Map<string, UsageNode>();
+  for (const row of rows) {
+    byPath.set(row.path, {
+      path: row.path,
+      totalBytes: row.totalBytes,
+      fileCount: row.fileCount,
+      children: [],
+    });
+  }
+
+  let root: UsageNode | null = null;
+  for (const row of rows) {
+    const node = byPath.get(row.path);
+    if (!node) continue;
+    if (row.parentPath === null) {
+      root = node;
+      continue;
+    }
+    byPath.get(row.parentPath)?.children.push(node);
+  }
+  return root;
+}
+
+/** Turns the database payload into what the page renders. */
+export function toSnapshot(payload: SnapshotPayload): Snapshot | null {
+  if (payload.empty || !payload.capturedAt) return null;
+  return {
+    schemaVersion: SCHEMA_VERSION,
+    capturedAt: payload.capturedAt,
+    device: {
+      availableBytes: payload.device?.availableBytes ?? null,
+      serverVersion: payload.device?.serverVersion ?? null,
+    },
+    locations: (payload.locations ?? []).map((location) => ({
+      id: location.id,
+      name: location.name,
+      path: location.path,
+      accessLevel: location.accessLevel,
+      partial: location.partial,
+      root: buildTree(location.nodes),
+      ...(location.error ? { error: location.error } : {}),
+    })),
+  };
 }

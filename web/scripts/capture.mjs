@@ -14,14 +14,22 @@ import { fileURLToPath } from 'node:url';
 import { parseUsage, payload } from './parse-usage.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const OUT = resolve(HERE, '..', 'src', 'data', 'snapshot.json');
 
 const URL_ = process.env.MCP_URL;
 const TOKEN = process.env.MCP_TOKEN;
 const DEPTH = Number(process.env.MCP_DEPTH ?? 2);
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const DRY_RUN_FILE = process.env.SNAPSHOT_OUT;
 
 if (!URL_ || !TOKEN) {
   console.error('Set MCP_URL and MCP_TOKEN.');
+  process.exit(1);
+}
+if (!DRY_RUN_FILE && (!SUPABASE_URL || !SERVICE_KEY)) {
+  console.error(
+    'Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY, or SNAPSHOT_OUT to write a file instead.',
+  );
   process.exit(1);
 }
 
@@ -113,7 +121,70 @@ for (const location of locations) {
   });
 }
 
-mkdirSync(dirname(OUT), { recursive: true });
-writeFileSync(OUT, `${JSON.stringify(out, null, 2)}\n`);
+if (DRY_RUN_FILE) {
+  const target = resolve(HERE, '..', DRY_RUN_FILE);
+  mkdirSync(dirname(target), { recursive: true });
+  writeFileSync(target, `${JSON.stringify(out, null, 2)}\n`);
+  console.error(`\nWrote ${target}`);
+} else {
+  const { createClient } = await import('@supabase/supabase-js');
+  const db = createClient(SUPABASE_URL, SERVICE_KEY, {
+    auth: { persistSession: false },
+    db: { schema: 'device_storage' },
+  });
+
+  const { data: snapshotRow, error: snapshotError } = await db
+    .from('snapshots')
+    .insert({
+      captured_at: out.capturedAt,
+      device_available_bytes: out.device.availableBytes,
+      server_version: out.device.serverVersion,
+    })
+    .select('id')
+    .single();
+  if (snapshotError) throw new Error(`snapshots: ${snapshotError.message}`);
+  const snapshotId = snapshotRow.id;
+
+  // Locations first: usage_nodes carries a composite foreign key to them, so inserting nodes for a
+  // location that does not exist yet fails the whole capture rather than storing a partial tree.
+  const { error: locationsError } = await db.from('locations').insert(
+    out.locations.map((l) => ({
+      snapshot_id: snapshotId,
+      location_id: l.id,
+      name: l.name,
+      path: l.path,
+      access_level: l.accessLevel,
+      partial: l.partial,
+      error: l.error ?? null,
+    })),
+  );
+  if (locationsError) throw new Error(`locations: ${locationsError.message}`);
+
+  const rows = [];
+  for (const location of out.locations) {
+    const walk = (node, parentPath, depth) => {
+      rows.push({
+        snapshot_id: snapshotId,
+        location_id: location.id,
+        path: node.path,
+        parent_path: parentPath,
+        depth,
+        total_bytes: node.totalBytes,
+        file_count: node.fileCount,
+      });
+      for (const child of node.children) walk(child, node.path, depth + 1);
+    };
+    if (location.root) walk(location.root, null, 0);
+  }
+
+  // Chunked: a deep tree runs to thousands of rows and one oversized request fails the capture
+  // after the device work is already done.
+  for (let i = 0; i < rows.length; i += 500) {
+    const { error } = await db.from('usage_nodes').insert(rows.slice(i, i + 500));
+    if (error) throw new Error(`usage_nodes: ${error.message}`);
+  }
+  console.error(`\nStored snapshot ${snapshotId}: ${rows.length} nodes`);
+}
+
 const bytes = out.locations.reduce((s, l) => s + (l.root?.totalBytes ?? 0), 0);
-console.error(`\nWrote ${OUT}: ${out.locations.length} locations, ${(bytes / 1e9).toFixed(2)} GB`);
+console.error(`${out.locations.length} locations, ${(bytes / 1e9).toFixed(2)} GB`);

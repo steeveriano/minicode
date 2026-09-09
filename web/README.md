@@ -5,26 +5,63 @@ app Android de este mismo repositorio.
 
 ## Por qué vive acá
 
-El JSON que produce la captura y el que consume la página son **el mismo contrato**
-(`src/snapshot.ts` es un espejo de `DiskUsageResult` en el lado Android). En un solo repositorio no
-pueden desincronizarse en silencio: un campo renombrado en el dispositivo rompe el `tsc` de acá.
+Lo que produce la captura y lo que consume la página son **el mismo contrato** (`src/snapshot.ts` es
+un espejo de `DiskUsageResult` en el lado Android). En un solo repositorio no pueden
+desincronizarse en silencio: un campo renombrado en el dispositivo rompe el `tsc` de acá.
+
+## Configuración
+
+`cp .env.example .env`. Las credenciales de ahí son publicables por diseño: identifican al proyecto,
+no a una persona. En Netlify van como variables de entorno del sitio.
 
 ## La página no habla con el teléfono
 
-Lee un `snapshot.json` compilado dentro del bundle. Funciona con el celular apagado y **no contiene
-ninguna credencial**. El `Content-Security-Policy` del deploy declara `connect-src 'none'`, que es
-lo que lo demuestra por construcción y no por promesa.
+Consulta Supabase, nunca el dispositivo. Funciona con el celular apagado. El
+`Content-Security-Policy` del deploy nombra **una sola** dirección en `connect-src` —el proyecto de
+Supabase—, así que un pedido al túnel del teléfono lo bloquea el navegador, entre en el bundle lo
+que entre después.
 
-La captura es un paso aparte, que se corre desde una máquina de confianza porque necesita un token
-que da control total del dispositivo:
+## Quién puede entrar
+
+El padrón de usuarios de ese proyecto de Supabase pertenece a otra aplicación, así que **poder
+iniciar sesión no es permiso para estar acá**. Lo decide `device_storage.viewers`, una lista de
+correos autorizados que el servidor consulta en cada pedido. Un usuario autenticado pero no listado
+recibe `null`, no un inventario vacío — la página distingue las dos cosas.
+
+Autorizar a alguien:
+
+```sql
+insert into device_storage.viewers (email, note) values ('persona@ejemplo.com', 'quién es');
+```
+
+## La captura
+
+Paso aparte, desde una máquina de confianza: tiene las dos credenciales que nunca deben llegar a un
+navegador — el token del dispositivo (control total del celular) y la clave de servicio de Supabase
+(saltea row level security).
 
 ```sh
 MCP_URL=https://<tunel>.trycloudflare.com/mcp \
-MCP_TOKEN=<token> \
+MCP_TOKEN=<token del celular> \
+SUPABASE_URL=https://<proyecto>.supabase.co \
+SUPABASE_SERVICE_ROLE_KEY=<clave de servicio> \
 npm run capture
 ```
 
-Escribe `src/data/snapshot.json`. Commiteás ese archivo y Netlify redespliega.
+Inserta una instantánea nueva; la página siempre muestra la última. Para una corrida en seco sin
+tocar la base: `SNAPSHOT_OUT=tmp/snapshot.json`.
+
+## Las tablas
+
+`device_storage` está **fuera** de la API REST a propósito. La única puerta es la función
+`public.device_storage_latest_snapshot()`, que verifica la lista antes de devolver nada.
+
+| tabla | qué guarda |
+|---|---|
+| `snapshots` | una fila por captura |
+| `locations` | ubicaciones autorizadas en esa captura, con su nivel de acceso |
+| `usage_nodes` | el árbol aplanado — es lo que permite comparar capturas y medir crecimiento |
+| `viewers` | correos autorizados |
 
 ## Comandos
 
@@ -34,7 +71,7 @@ Escribe `src/data/snapshot.json`. Commiteás ese archivo y Netlify redespliega.
 | `npm run build` | build de producción a `dist/` |
 | `npm run lint` | chequeo de tipos |
 | `npm test` | tests del parser |
-| `npm run capture` | mide el teléfono y regenera el snapshot |
+| `npm run capture` | mide el teléfono y guarda una instantánea en Supabase |
 
 ## Lo que falta
 
