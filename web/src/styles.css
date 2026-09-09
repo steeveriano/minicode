@@ -1020,7 +1020,7 @@ button.linklike:hover {
 .ex-head,
 .ex-row {
   display: grid;
-  grid-template-columns: minmax(0, 2.4fr) minmax(0, 1.3fr) minmax(0, 1.2fr) 110px;
+  grid-template-columns: 34px minmax(0, 2.4fr) minmax(0, 1.3fr) minmax(0, 1.2fr) 110px;
   align-items: center;
 }
 
@@ -1228,12 +1228,12 @@ button.linklike:hover {
   }
   .ex-head,
   .ex-row {
-    grid-template-columns: minmax(0, 1fr) 96px;
+    grid-template-columns: 34px minmax(0, 1fr) 96px;
   }
-  .ex-th:nth-child(2),
   .ex-th:nth-child(3),
-  .ex-cell:nth-child(2),
-  .ex-cell:nth-child(3) {
+  .ex-th:nth-child(4),
+  .ex-cell:nth-child(3),
+  .ex-cell:nth-child(4) {
     display: none;
   }
 }
@@ -1304,4 +1304,51 @@ button.linklike:hover {
   max-height: 260px;
   display: block;
   background: #000;
+}
+
+/* ---------------------------------------------------------------- selection */
+
+.ex-th.check,
+.ex-cell.check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-right: 0;
+}
+
+.ex-th.check input,
+.ex-cell.check input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.ex-row.checked {
+  background: rgba(0, 230, 118, 0.14);
+}
+
+.ex-row.checked:hover {
+  background: rgba(0, 230, 118, 0.19);
+}
+
+.ex-picked {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.pv-audio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 14px;
+  width: 100%;
+}
+
+.pv-audio audio {
+  width: 100%;
+  max-width: 220px;
 }

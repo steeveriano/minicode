@@ -39,6 +39,10 @@ export function BrowserScreen({ slug }: { slug: string }) {
   const [usage, setUsage] = useState<UsageTreeNode | null>(null);
   const [usageBusy, setUsageBusy] = useState(false);
   const [selected, setSelected] = useState<FileEntry | null>(null);
+  // Names are unique within a folder, so they key the selection. It is cleared on navigation:
+  // carrying a selection across folders would let one click act somewhere the eye is not.
+  const [checked, setChecked] = useState<ReadonlySet<string>>(new Set());
+  const anchor = useRef<string | null>(null);
 
   // Back and forward, as an address bar has them. The index walks the stack; a new navigation
   // truncates whatever was ahead of it, exactly like a browser.
@@ -76,6 +80,8 @@ export function BrowserScreen({ slug }: { slug: string }) {
     setError(null);
     setUsage(null);
     setSelected(null);
+    setChecked(new Set());
+    anchor.current = null;
     listFiles(slug, place.locationId, place.path, 0, PAGE)
       .then((listing) => {
         if (cancelled) return;
@@ -180,6 +186,52 @@ export function BrowserScreen({ slug }: { slug: string }) {
       bytes: files.reduce((n, e) => n + e.size, 0),
     };
   }, [rows]);
+
+  /**
+   * Click selects one, ctrl toggles, shift extends from the last anchor — the three gestures a
+   * file manager has, because anything else makes selecting forty files a forty-click job.
+   */
+  function pick(entry: FileEntry, event: { ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }) {
+    setSelected(entry);
+    const additive = event.ctrlKey || event.metaKey;
+
+    if (event.shiftKey && anchor.current) {
+      const from = rows.findIndex((r) => r.name === anchor.current);
+      const to = rows.findIndex((r) => r.name === entry.name);
+      if (from !== -1 && to !== -1) {
+        const [lo, hi] = from < to ? [from, to] : [to, from];
+        const span = rows.slice(lo, hi + 1).map((r) => r.name);
+        setChecked((current) => new Set(additive ? [...current, ...span] : span));
+        return;
+      }
+    }
+
+    anchor.current = entry.name;
+    if (additive) {
+      setChecked((current) => {
+        const next = new Set(current);
+        if (next.has(entry.name)) next.delete(entry.name);
+        else next.add(entry.name);
+        return next;
+      });
+      return;
+    }
+    setChecked(new Set([entry.name]));
+  }
+
+  function toggleAll() {
+    setChecked((current) => (current.size === rows.length ? new Set() : new Set(rows.map((r) => r.name))));
+  }
+
+  const picked = useMemo(() => {
+    const items = rows.filter((r) => checked.has(r.name));
+    const files = items.filter((r) => !r.is_directory);
+    return {
+      count: items.length,
+      bytes: files.reduce((n, r) => n + r.size, 0),
+      dirs: items.length - files.length,
+    };
+  }, [rows, checked]);
 
   function sortBy(next: Column) {
     if (next === column) setDirection((d) => (d === 'asc' ? 'desc' : 'asc'));
@@ -292,6 +344,18 @@ export function BrowserScreen({ slug }: { slug: string }) {
 
           <div className="ex-grid" role="table" aria-label="Contenido de la carpeta">
             <div className="ex-head" role="row">
+              <span className="ex-th check">
+                <input
+                  type="checkbox"
+                  checked={rows.length > 0 && checked.size === rows.length}
+                  ref={(el) => {
+                    if (el) el.indeterminate = checked.size > 0 && checked.size < rows.length;
+                  }}
+                  onChange={toggleAll}
+                  aria-label="Seleccionar todo"
+                  disabled={rows.length === 0}
+                />
+              </span>
               {COLUMNS.map((col) => (
                 <button
                   key={col.id}
@@ -328,22 +392,39 @@ export function BrowserScreen({ slug }: { slug: string }) {
                     <div
                       key={`${entry.path}:${entry.name}`}
                       role="row"
-                      className={isSelected ? 'ex-row selected' : 'ex-row'}
+                      className={
+                        checked.has(entry.name)
+                          ? 'ex-row checked'
+                          : isSelected
+                            ? 'ex-row selected'
+                            : 'ex-row'
+                      }
                       tabIndex={0}
-                      onClick={() => setSelected(entry)}
+                      onClick={(e) => pick(entry, e)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && entry.is_directory && place) {
                           go({ ...place, path: join(place.path, entry.name) });
                         }
                         if (e.key === ' ') {
                           e.preventDefault();
-                          setSelected(entry);
+                          pick(entry, { ctrlKey: true, metaKey: false, shiftKey: false });
                         }
                       }}
                       onDoubleClick={() =>
                         entry.is_directory && place && go({ ...place, path: join(place.path, entry.name) })
                       }
                     >
+                      <span className="ex-cell check" role="cell">
+                        <input
+                          type="checkbox"
+                          checked={checked.has(entry.name)}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) =>
+                            pick(entry, { ctrlKey: true, metaKey: false, shiftKey: e.nativeEvent instanceof MouseEvent && e.nativeEvent.shiftKey })
+                          }
+                          aria-label={`Seleccionar ${entry.name}`}
+                        />
+                      </span>
                       <span className="ex-cell name" role="cell">
                         {entry.is_directory ? <FolderIcon /> : <FileIcon name={entry.name} />}
                         <span className="ex-name">{entry.name}</span>
@@ -424,6 +505,14 @@ export function BrowserScreen({ slug }: { slug: string }) {
 
       <div className="ex-status-bar">
         <span>
+          {picked.count > 0 && (
+            <strong className="ex-picked">
+              {formatCount(picked.count)} seleccionados
+              {picked.bytes > 0 && ` · ${formatBytes(picked.bytes)}`}
+              {picked.dirs > 0 && ` · ${formatCount(picked.dirs)} carpetas`}
+              {' — '}
+            </strong>
+          )}
           {formatCount(rows.length)} elementos
           {counts.dirs > 0 && ` · ${formatCount(counts.dirs)} carpetas`}
           {counts.files > 0 && ` · ${formatCount(counts.files)} archivos, ${formatBytes(counts.bytes)}`}

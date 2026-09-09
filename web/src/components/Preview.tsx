@@ -7,6 +7,14 @@ import { FileIcon, FolderIcon } from './icons';
 /** Text is read through the line-based tool, so a long file shows its head rather than all of it. */
 const TEXT_LINES = 80;
 
+/**
+ * Above this, the pane asks before fetching.
+ *
+ * Every preview crosses the tunnel, and the free ngrok allowance is one gigabyte a month. Loading a
+ * 60 MB video by merely clicking its row would spend six percent of the month on a glance.
+ */
+const AUTO_BYTES = 8_000_000;
+
 type State =
   | { kind: 'idle' }
   | { kind: 'loading' }
@@ -34,15 +42,25 @@ export function Preview({
   entry: FileEntry;
 }) {
   const [state, setState] = useState<State>({ kind: 'idle' });
+  const [forced, setForced] = useState(false);
   const family = entry.is_directory ? 'folder' : familyOf(entry.name);
-  // Video is attempted like anything else: the size guard lives at the endpoint, and plenty of
-  // clips on a phone are small enough to play. Guessing here would hide the ones that work.
-  const renderable = family === 'image' || family === 'video' || isPdf(entry.name);
+  // Audio and video are attempted like anything else: the size guard lives at the endpoint, and
+  // most clips on a phone play fine. Guessing here hid every one that worked.
+  const renderable =
+    family === 'image' || family === 'video' || family === 'audio' || isPdf(entry.name);
   const textual = family === 'document' && !isPdf(entry.name);
+  const heavy = renderable && entry.size > AUTO_BYTES && !forced;
+
+  // A new selection forgets a previous "load it anyway".
+  useEffect(() => setForced(false), [entry.path, entry.name]);
 
   useEffect(() => {
     if (entry.is_directory) {
       setState({ kind: 'none', reason: 'Es una carpeta.' });
+      return;
+    }
+    if (heavy) {
+      setState({ kind: 'idle' });
       return;
     }
 
@@ -74,7 +92,7 @@ export function Preview({
       cancelled = true;
       if (created) URL.revokeObjectURL(created);
     };
-  }, [slug, locationId, relativePath, entry.is_directory, entry.name, renderable, textual, family]);
+  }, [slug, locationId, relativePath, entry.is_directory, entry.name, renderable, textual, family, heavy]);
 
   return (
     <div className="pv">
@@ -88,6 +106,13 @@ export function Preview({
         <video className="pv-video" src={state.url} controls preload="metadata" />
       )}
 
+      {state.kind === 'blob' && family === 'audio' && (
+        <div className="pv-audio">
+          <FileIcon name={entry.name} size={40} />
+          <audio src={state.url} controls preload="metadata" />
+        </div>
+      )}
+
       {state.kind === 'blob' && isPdf(entry.name) && (
         <iframe className="pv-frame" src={state.url} title={entry.name} />
       )}
@@ -98,9 +123,14 @@ export function Preview({
         <div className="pv-fallback">
           {entry.is_directory ? <FolderIcon size={48} /> : <FileIcon name={entry.name} size={48} />}
           <p className="pv-note">
-            {state.kind === 'none' ? state.reason : describeType(entry)}
+            {heavy ? 'Pesado para traer por el túnel.' : state.kind === 'none' ? state.reason : describeType(entry)}
           </p>
           {!entry.is_directory && <p className="pv-note mono">{formatBytes(entry.size)}</p>}
+          {heavy && (
+            <button type="button" className="ex-action" onClick={() => setForced(true)}>
+              Previsualizar igual
+            </button>
+          )}
         </div>
       )}
     </div>

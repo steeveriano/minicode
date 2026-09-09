@@ -2,11 +2,14 @@ import type { Config } from '@netlify/functions';
 import { DEVICE_TIMEOUT_MS, bearerFrom, callDeviceTool, deviceFor, gateFor, json } from './lib/device.mts';
 
 /**
- * Netlify answers a synchronous function with at most 6 MB, so anything near that is refused rather
- * than truncated. Thumbnails and documents fit comfortably; a video does not, and saying so is more
- * useful than a broken image.
+ * The device refuses to expose anything over 64 MB, so that is the real ceiling and this is only a
+ * guard against a device that changes its mind.
+ *
+ * An earlier version capped at 5 MB because it read the whole file into memory before answering,
+ * and a buffered function response is limited to 6 MB. Streaming the body through removes that
+ * limit entirely — the bytes never sit in the function at all.
  */
-const MAX_PREVIEW_BYTES = 5_000_000;
+const MAX_PREVIEW_BYTES = 67_108_864;
 
 /** `File 'name' image/png (24526 bytes) at https://… (expires 1h).` — the tool answers in prose. */
 const SHARE_LINE = /at (https:\/\/\S+?) \(expires/;
@@ -78,24 +81,24 @@ export default async (req: Request): Promise<Response> => {
   }
   if (!upstream.ok) return json(502, { error: 'El dispositivo no entregó el archivo.' });
 
-  const bytes = await upstream.arrayBuffer();
-  if (bytes.byteLength > MAX_PREVIEW_BYTES) {
-    return json(413, { error: 'Demasiado grande para previsualizar acá.', bytes: bytes.byteLength });
-  }
+  if (!upstream.body) return json(502, { error: 'El dispositivo no entregó contenido.' });
 
-  return new Response(bytes, {
-    status: 200,
-    headers: {
-      // Trust the device's own content type: it knows the file, and sniffing here would only add a
-      // second opinion. `nosniff` keeps the browser from forming a third.
-      'content-type': upstream.headers.get('content-type') ?? 'application/octet-stream',
-      'content-length': String(bytes.byteLength),
-      'x-content-type-options': 'nosniff',
-      // Private and short: the panel re-renders often, and this is one person's file.
-      'cache-control': 'private, max-age=300',
-      'content-disposition': 'inline',
-    },
-  });
+  const headers: Record<string, string> = {
+    // Trust the device's own content type: it knows the file, and sniffing here would only add a
+    // second opinion. `nosniff` keeps the browser from forming a third.
+    'content-type': upstream.headers.get('content-type') ?? 'application/octet-stream',
+    'x-content-type-options': 'nosniff',
+    // Private and short: the panel re-renders often, and this is one person's file.
+    'cache-control': 'private, max-age=300',
+    'content-disposition': 'inline',
+  };
+  const length = upstream.headers.get('content-length');
+  if (length) headers['content-length'] = length;
+
+  // Piped, not buffered. The bytes pass through without the function ever holding the file, which
+  // is what lets a 60 MB video answer at all. The device ignores Range and always sends the whole
+  // file, so there is no seeking — playback starts at the beginning and that is the honest limit.
+  return new Response(upstream.body, { status: 200, headers });
 };
 
 export const config: Config = { path: '/api/device/:slug/file' };
