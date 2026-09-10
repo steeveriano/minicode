@@ -3,6 +3,7 @@ import type { Session } from '@supabase/supabase-js';
 import { Auth } from './Auth';
 import { supabase } from './supabase';
 import { fleetDevices, type FleetDevice } from './api/fleet';
+import { AnalysisScreen } from './screens/AnalysisScreen';
 import { BrowserScreen } from './screens/BrowserScreen';
 import { DevicesScreen } from './screens/DevicesScreen';
 import { ProposalsScreen } from './screens/ProposalsScreen';
@@ -11,11 +12,12 @@ import { SnapshotScreen } from './screens/SnapshotScreen';
 import { toSnapshot, type Snapshot, type SnapshotPayload } from './snapshot';
 
 type Access = 'loading' | 'anonymous' | 'denied' | 'granted';
-type Tab = 'devices' | 'browser' | 'proposals' | 'snapshot' | 'settings';
+type Tab = 'devices' | 'browser' | 'analysis' | 'proposals' | 'snapshot' | 'settings';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'devices', label: 'Dispositivos' },
   { id: 'browser', label: 'Navegador' },
+  { id: 'analysis', label: 'Análisis' },
   { id: 'proposals', label: 'Propuestas' },
   { id: 'snapshot', label: 'Censo' },
   { id: 'settings', label: 'Ajustes' },
@@ -146,6 +148,10 @@ export function App() {
         ) : (
           <p className="empty">Elegí un dispositivo en la pestaña Dispositivos.</p>
         ))}
+
+      {tab === 'analysis' && (
+        <AnalysisScreen deviceSlug={selected} onProposed={() => setTab('proposals')} />
+      )}
 
       {tab === 'proposals' && <ProposalsScreen deviceSlug={selected} />}
 

@@ -1687,3 +1687,72 @@ button.linklike:hover {
 .ex-spend {
   color: var(--ink-2);
 }
+
+/* --------------------------------------------------------------- análisis */
+
+.analysis {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  /* Deja aire bajo la última sección para que la barra de propuesta no tape una fila. */
+  padding-bottom: 140px;
+}
+
+/* Ya se usaba en Propuestas sin estar definida: una tabla ancha empujaba la página entera. */
+.scroll {
+  overflow-x: auto;
+}
+
+.dim {
+  color: var(--ink-2);
+}
+
+.cards.compact {
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.cards.compact .card {
+  gap: 6px;
+  padding: 14px 16px;
+}
+
+.big {
+  margin: 0;
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0 16px;
+}
+
+.ex-action.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+.analysis .files tr {
+  cursor: default;
+}
+
+.pendientes {
+  margin: 12px 0 0;
+  padding-left: 20px;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  columns: 2;
+  column-gap: 28px;
+}
+
+@media (max-width: 720px) {
+  .pendientes {
+    columns: 1;
+  }
+}
